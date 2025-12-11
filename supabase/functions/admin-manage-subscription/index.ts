@@ -202,7 +202,7 @@ serve(async (req) => {
     }
 
     if (action === "refund") {
-      const { paymentIntentId, amount } = await req.json().catch(() => ({}));
+      const { paymentIntentId, amount, customerEmail } = await req.json().catch(() => ({}));
       if (!paymentIntentId) throw new Error("Payment intent ID is required for refund");
       
       logStep("Processing refund", { paymentIntentId, amount });
@@ -220,6 +220,33 @@ serve(async (req) => {
       const refund = await stripe.refunds.create(refundParams);
       
       logStep("Refund processed", { refundId: refund.id, amount: refund.amount, status: refund.status });
+
+      // Send email notification if customer email is provided
+      if (customerEmail) {
+        try {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+          const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+          
+          await fetch(`${supabaseUrl}/functions/v1/send-refund-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              customerEmail,
+              refundAmount: refund.amount,
+              currency: refund.currency,
+              refundId: refund.id,
+            }),
+          });
+          logStep("Refund notification email sent", { customerEmail });
+        } catch (emailError) {
+          logStep("Failed to send refund notification email", { error: emailError });
+          // Don't fail the refund if email fails
+        }
+      }
+
       return new Response(JSON.stringify({
         success: true,
         message: `Refund of $${(refund.amount / 100).toFixed(2)} has been processed`,
