@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Users, MessageSquare, TrendingUp, CreditCard, DollarSign, UserPlus, Percent } from 'lucide-react';
+import { Loader2, Users, MessageSquare, TrendingUp, CreditCard, DollarSign, UserPlus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
 
@@ -36,6 +36,18 @@ export default function AdminAnalytics() {
     conversionRate: 0,
     newSubscriptionsToday: 0,
   });
+  const [periodComparison, setPeriodComparison] = useState({
+    usersGrowth: 0,
+    threadsGrowth: 0,
+    subscriptionsGrowth: 0,
+    earningsGrowth: 0,
+    currentPeriodUsers: 0,
+    previousPeriodUsers: 0,
+    currentPeriodThreads: 0,
+    previousPeriodThreads: 0,
+    currentPeriodSubs: 0,
+    previousPeriodSubs: 0,
+  });
 
   useEffect(() => {
     fetchAnalytics();
@@ -44,8 +56,10 @@ export default function AdminAnalytics() {
   const fetchAnalytics = async () => {
     setLoading(true);
     const days = parseInt(dateRange);
-    const startDate = startOfDay(subDays(new Date(), days));
-    const endDate = endOfDay(new Date());
+    const currentStart = startOfDay(subDays(new Date(), days));
+    const currentEnd = endOfDay(new Date());
+    const previousStart = startOfDay(subDays(new Date(), days * 2));
+    const previousEnd = endOfDay(subDays(new Date(), days + 1));
 
     try {
       // Fetch all data in parallel
@@ -59,9 +73,52 @@ export default function AdminAnalytics() {
         supabase.from('profiles').select('created_at'),
         supabase.from('thread_history').select('created_at, platform'),
         supabase.from('user_billing').select('subscription_status, created_at, updated_at'),
-        supabase.from('affiliate_earnings').select('amount'),
+        supabase.from('affiliate_earnings').select('amount, created_at'),
         supabase.from('thread_history').select('platform'),
       ]);
+
+      // Helper to check if date is in range
+      const isInRange = (dateStr: string, start: Date, end: Date) => {
+        const date = new Date(dateStr);
+        return date >= start && date <= end;
+      };
+
+      // Current period stats
+      const currentPeriodUsers = usersResult.data?.filter(u => isInRange(u.created_at, currentStart, currentEnd)).length || 0;
+      const currentPeriodThreads = threadsResult.data?.filter(t => isInRange(t.created_at, currentStart, currentEnd)).length || 0;
+      const currentPeriodSubs = subscriptionsResult.data?.filter(s => 
+        s.subscription_status === 'active' && isInRange(s.updated_at, currentStart, currentEnd)
+      ).length || 0;
+      const currentPeriodEarnings = earningsResult.data?.filter(e => isInRange(e.created_at, currentStart, currentEnd))
+        .reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+
+      // Previous period stats
+      const previousPeriodUsers = usersResult.data?.filter(u => isInRange(u.created_at, previousStart, previousEnd)).length || 0;
+      const previousPeriodThreads = threadsResult.data?.filter(t => isInRange(t.created_at, previousStart, previousEnd)).length || 0;
+      const previousPeriodSubs = subscriptionsResult.data?.filter(s => 
+        s.subscription_status === 'active' && isInRange(s.updated_at, previousStart, previousEnd)
+      ).length || 0;
+      const previousPeriodEarnings = earningsResult.data?.filter(e => isInRange(e.created_at, previousStart, previousEnd))
+        .reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+
+      // Calculate growth percentages
+      const calcGrowth = (current: number, previous: number) => {
+        if (previous === 0) return current > 0 ? 100 : 0;
+        return ((current - previous) / previous) * 100;
+      };
+
+      setPeriodComparison({
+        usersGrowth: calcGrowth(currentPeriodUsers, previousPeriodUsers),
+        threadsGrowth: calcGrowth(currentPeriodThreads, previousPeriodThreads),
+        subscriptionsGrowth: calcGrowth(currentPeriodSubs, previousPeriodSubs),
+        earningsGrowth: calcGrowth(currentPeriodEarnings, previousPeriodEarnings),
+        currentPeriodUsers,
+        previousPeriodUsers,
+        currentPeriodThreads,
+        previousPeriodThreads,
+        currentPeriodSubs,
+        previousPeriodSubs,
+      });
 
       // Calculate totals
       const totalUsers = usersResult.data?.length || 0;
@@ -101,7 +158,7 @@ export default function AdminAnalytics() {
       });
 
       // Build daily stats for the chart
-      const dateInterval = eachDayOfInterval({ start: startDate, end: endDate });
+      const dateInterval = eachDayOfInterval({ start: currentStart, end: currentEnd });
       const dailyData: DailyStats[] = dateInterval.map(date => {
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
@@ -290,6 +347,92 @@ export default function AdminAnalytics() {
         </Card>
 
       </div>
+
+      {/* Period Comparison */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-lg">Period Comparison</CardTitle>
+          <CardDescription>
+            Last {dateRange} days vs previous {dateRange} days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Users Growth */}
+            <div className="p-4 rounded-lg bg-secondary/30 border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">New Users</span>
+                <div className={`flex items-center gap-1 text-sm font-medium ${periodComparison.usersGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {periodComparison.usersGrowth >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4" />
+                  )}
+                  {Math.abs(periodComparison.usersGrowth).toFixed(1)}%
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">{periodComparison.currentPeriodUsers}</span>
+                <span className="text-sm text-muted-foreground">vs {periodComparison.previousPeriodUsers}</span>
+              </div>
+            </div>
+
+            {/* Threads Growth */}
+            <div className="p-4 rounded-lg bg-secondary/30 border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">New Threads</span>
+                <div className={`flex items-center gap-1 text-sm font-medium ${periodComparison.threadsGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {periodComparison.threadsGrowth >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4" />
+                  )}
+                  {Math.abs(periodComparison.threadsGrowth).toFixed(1)}%
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">{periodComparison.currentPeriodThreads}</span>
+                <span className="text-sm text-muted-foreground">vs {periodComparison.previousPeriodThreads}</span>
+              </div>
+            </div>
+
+            {/* Subscriptions Growth */}
+            <div className="p-4 rounded-lg bg-secondary/30 border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">New Subscriptions</span>
+                <div className={`flex items-center gap-1 text-sm font-medium ${periodComparison.subscriptionsGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {periodComparison.subscriptionsGrowth >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4" />
+                  )}
+                  {Math.abs(periodComparison.subscriptionsGrowth).toFixed(1)}%
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">{periodComparison.currentPeriodSubs}</span>
+                <span className="text-sm text-muted-foreground">vs {periodComparison.previousPeriodSubs}</span>
+              </div>
+            </div>
+
+            {/* Earnings Growth */}
+            <div className="p-4 rounded-lg bg-secondary/30 border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Earnings Growth</span>
+                <div className={`flex items-center gap-1 text-sm font-medium ${periodComparison.earningsGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {periodComparison.earningsGrowth >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4" />
+                  )}
+                  {Math.abs(periodComparison.earningsGrowth).toFixed(1)}%
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">vs previous period</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Conversion Funnel */}
       <Card className="bg-card border-border">
