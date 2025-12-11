@@ -26,6 +26,7 @@ export default function AdminAnalytics() {
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [platformStats, setPlatformStats] = useState<PlatformStats[]>([]);
   const [conversionData, setConversionData] = useState<{ date: string; rate: number }[]>([]);
+  const [revenueData, setRevenueData] = useState<{ date: string; mrr: number; newRevenue: number }[]>([]);
   const [totals, setTotals] = useState({
     totalUsers: 0,
     totalThreads: 0,
@@ -35,6 +36,8 @@ export default function AdminAnalytics() {
     threadsToday: 0,
     conversionRate: 0,
     newSubscriptionsToday: 0,
+    currentMRR: 0,
+    projectedARR: 0,
   });
   const [periodComparison, setPeriodComparison] = useState({
     usersGrowth: 0,
@@ -47,7 +50,11 @@ export default function AdminAnalytics() {
     previousPeriodThreads: 0,
     currentPeriodSubs: 0,
     previousPeriodSubs: 0,
+    mrrGrowth: 0,
   });
+  
+  // Subscription price in dollars
+  const SUBSCRIPTION_PRICE = 5;
 
   useEffect(() => {
     fetchAnalytics();
@@ -107,6 +114,10 @@ export default function AdminAnalytics() {
         return ((current - previous) / previous) * 100;
       };
 
+      // Calculate MRR for periods
+      const currentPeriodMRR = currentPeriodSubs * SUBSCRIPTION_PRICE;
+      const previousPeriodMRR = previousPeriodSubs * SUBSCRIPTION_PRICE;
+
       setPeriodComparison({
         usersGrowth: calcGrowth(currentPeriodUsers, previousPeriodUsers),
         threadsGrowth: calcGrowth(currentPeriodThreads, previousPeriodThreads),
@@ -118,6 +129,7 @@ export default function AdminAnalytics() {
         previousPeriodThreads,
         currentPeriodSubs,
         previousPeriodSubs,
+        mrrGrowth: calcGrowth(currentPeriodMRR, previousPeriodMRR),
       });
 
       // Calculate totals
@@ -146,6 +158,10 @@ export default function AdminAnalytics() {
         s => s.subscription_status === 'active' && new Date(s.updated_at) >= today
       ).length || 0;
 
+      // Calculate MRR
+      const currentMRR = activeSubscriptions * SUBSCRIPTION_PRICE;
+      const projectedARR = currentMRR * 12;
+
       setTotals({
         totalUsers,
         totalThreads,
@@ -155,6 +171,8 @@ export default function AdminAnalytics() {
         threadsToday,
         conversionRate,
         newSubscriptionsToday,
+        currentMRR,
+        projectedARR,
       });
 
       // Build daily stats for the chart
@@ -214,6 +232,30 @@ export default function AdminAnalytics() {
       });
 
       setConversionData(conversionTrend);
+
+      // Calculate revenue trend data (cumulative MRR over time)
+      let runningMRR = 0;
+      const revenueTrend = dateInterval.map(date => {
+        const dayStart = startOfDay(date);
+        const dayEnd = endOfDay(date);
+
+        // New subscriptions add to MRR
+        const newSubs = subscriptionsResult.data?.filter(s => {
+          const updated = new Date(s.updated_at);
+          return s.subscription_status === 'active' && updated >= dayStart && updated <= dayEnd;
+        }).length || 0;
+
+        // Canceled subscriptions reduce MRR (simplified - in reality you'd track cancellations separately)
+        runningMRR += newSubs * SUBSCRIPTION_PRICE;
+
+        return {
+          date: format(date, 'MMM dd'),
+          mrr: runningMRR,
+          newRevenue: newSubs * SUBSCRIPTION_PRICE,
+        };
+      });
+
+      setRevenueData(revenueTrend);
 
       // Calculate platform distribution
       const platformCounts: Record<string, number> = {};
@@ -430,6 +472,91 @@ export default function AdminAnalytics() {
               </div>
               <p className="text-sm text-muted-foreground">vs previous period</p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Revenue Analytics */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-lg">Revenue Analytics</CardTitle>
+          <CardDescription>Monthly Recurring Revenue (MRR) and growth trends</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-center">
+              <p className="text-3xl font-bold text-emerald-500">${totals.currentMRR.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Current MRR</p>
+            </div>
+            <div className="p-4 rounded-lg bg-secondary/50 text-center">
+              <p className="text-3xl font-bold text-foreground">${totals.projectedARR.toFixed(2)}</p>
+              <p className="text-sm text-muted-foreground">Projected ARR</p>
+            </div>
+            <div className="p-4 rounded-lg bg-secondary/50 text-center">
+              <p className="text-3xl font-bold text-foreground">{totals.activeSubscriptions}</p>
+              <p className="text-sm text-muted-foreground">Active Subscribers</p>
+            </div>
+            <div className="p-4 rounded-lg bg-secondary/50 text-center">
+              <div className={`flex items-center justify-center gap-1 text-2xl font-bold ${periodComparison.mrrGrowth >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {periodComparison.mrrGrowth >= 0 ? (
+                  <ArrowUpRight className="h-6 w-6" />
+                ) : (
+                  <ArrowDownRight className="h-6 w-6" />
+                )}
+                {Math.abs(periodComparison.mrrGrowth).toFixed(1)}%
+              </div>
+              <p className="text-sm text-muted-foreground">MRR Growth</p>
+            </div>
+          </div>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={revenueData}>
+                <defs>
+                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(142 76% 36%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(142 76% 36%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  formatter={(value: number, name: string) => [
+                    `$${value.toFixed(2)}`,
+                    name === 'mrr' ? 'Cumulative MRR' : 'New Revenue'
+                  ]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="mrr"
+                  stroke="hsl(142 76% 36%)"
+                  fill="url(#revenueGradient)"
+                  strokeWidth={2}
+                  name="mrr"
+                />
+                <Bar 
+                  dataKey="newRevenue" 
+                  fill="hsl(var(--primary))" 
+                  radius={[2, 2, 0, 0]}
+                  name="newRevenue"
+                  opacity={0.6}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
