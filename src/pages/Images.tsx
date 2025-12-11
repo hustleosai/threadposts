@@ -7,10 +7,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import ImageUploadDialog from '@/components/ImageUploadDialog';
-import { Image, Download, Search, ExternalLink, Clock, Lock, Crown, Sparkles } from 'lucide-react';
+import { Image, Download, Search, Eye, Clock, Lock, Crown, Sparkles, X } from 'lucide-react';
 interface ViralImage {
   id: string;
   title: string;
@@ -91,6 +92,7 @@ export default function Images() {
   const [images, setImages] = useState<ViralImage[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<ViralImage | null>(null);
   useEffect(() => {
     fetchImages();
   }, []);
@@ -276,11 +278,11 @@ export default function Images() {
                   <h3 className="font-semibold text-sm text-center">{image.title}</h3>
                   <p className="text-xs text-muted-foreground text-center">{image.description}</p>
                   <div className="flex gap-2 mt-2">
+                    <Button size="sm" variant="outline" onClick={() => setPreviewImage(image)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => downloadImage(image.image_url, image.title)}>
                       <Download className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => window.open(image.image_url, '_blank')}>
-                      <ExternalLink className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -295,6 +297,41 @@ export default function Images() {
             <Image className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No images found</p>
           </div>}
+
+        {/* Image Preview Dialog */}
+        <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+          <DialogContent className="max-w-3xl p-0 overflow-hidden">
+            <DialogHeader className="p-4 pb-0">
+              <DialogTitle>{previewImage?.title}</DialogTitle>
+            </DialogHeader>
+            {previewImage && (
+              <div className="space-y-4 p-4">
+                <div className="relative bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                  <img 
+                    src={previewImage.image_url} 
+                    alt={previewImage.title} 
+                    className="max-h-[60vh] w-auto object-contain"
+                  />
+                </div>
+                {previewImage.description && (
+                  <p className="text-sm text-muted-foreground">{previewImage.description}</p>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <Badge variant="secondary">{previewImage.category}</Badge>
+                    {previewImage.tags?.map(tag => (
+                      <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                    ))}
+                  </div>
+                  <Button onClick={() => downloadImage(previewImage.image_url, previewImage.title)} className="gap-2">
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>;
 }
