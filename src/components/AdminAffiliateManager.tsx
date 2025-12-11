@@ -85,7 +85,7 @@ export default function AdminAffiliateManager() {
     }
   };
 
-  const updatePayoutStatus = async (payoutId: string, newStatus: string) => {
+  const updatePayoutStatus = async (payoutId: string, newStatus: string, affiliateId: string, amount: number) => {
     setUpdatingPayout(payoutId);
     try {
       const updateData: { status: string; paid_at?: string } = { status: newStatus };
@@ -100,7 +100,22 @@ export default function AdminAffiliateManager() {
 
       if (error) throw error;
 
-      toast({ title: `Payout ${newStatus}` });
+      // Send email notification
+      const { error: notifyError } = await supabase.functions.invoke('send-payout-notification', {
+        body: {
+          affiliate_id: affiliateId,
+          payout_amount: amount,
+          status: newStatus as 'paid' | 'denied',
+        },
+      });
+
+      if (notifyError) {
+        console.error('Failed to send notification:', notifyError);
+        toast({ title: `Payout ${newStatus} (notification failed)` });
+      } else {
+        toast({ title: `Payout ${newStatus} - Email sent` });
+      }
+
       fetchAllData();
     } catch (error) {
       console.error('Error updating payout:', error);
@@ -243,7 +258,7 @@ export default function AdminAffiliateManager() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => updatePayoutStatus(payout.id, 'paid')}
+                                onClick={() => updatePayoutStatus(payout.id, 'paid', payout.affiliate_id, payout.amount)}
                                 disabled={updatingPayout === payout.id}
                               >
                                 {updatingPayout === payout.id ? (
@@ -255,7 +270,7 @@ export default function AdminAffiliateManager() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => updatePayoutStatus(payout.id, 'denied')}
+                                onClick={() => updatePayoutStatus(payout.id, 'denied', payout.affiliate_id, payout.amount)}
                                 disabled={updatingPayout === payout.id}
                               >
                                 <XCircle className="h-4 w-4 text-destructive" />
