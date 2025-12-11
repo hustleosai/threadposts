@@ -420,6 +420,7 @@ export default function Affiliate() {
         <AffiliateProfile 
           affiliateId={affiliate.id}
           currentReferralCode={affiliate.referral_code}
+          referralLink={referralLink}
           onUpdate={fetchAffiliateData}
         />
 
