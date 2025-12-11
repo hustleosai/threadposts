@@ -2,3 +2,6 @@ project_id = "jvonopsvdnlmcemiauyh"
 
 [functions.generate-thread]
 verify_jwt = true
+
+[functions.track-referral]
+verify_jwt = false

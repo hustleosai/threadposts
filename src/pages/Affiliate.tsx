@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
@@ -16,8 +17,13 @@ import {
   BarChart3,
   Image,
   Mail,
-  FileText
+  FileText,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Wallet
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 
 interface AffiliateData {
   id: string;
@@ -27,6 +33,7 @@ interface AffiliateData {
   total_earnings: number;
   pending_balance: number;
   stripe_connect_onboarded: boolean;
+  stripe_connect_id: string | null;
 }
 
 interface AffiliateStats {
@@ -35,22 +42,44 @@ interface AffiliateStats {
   conversionRate: number;
 }
 
+interface ConnectStatus {
+  onboarded: boolean;
+  details_submitted: boolean;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+}
+
 export default function Affiliate() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const [searchParams] = useSearchParams();
   const [affiliate, setAffiliate] = useState<AffiliateData | null>(null);
   const [stats, setStats] = useState<AffiliateStats>({ totalClicks: 0, totalConversions: 0, conversionRate: 0 });
+  const [connectStatus, setConnectStatus] = useState<ConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [payoutLoading, setPayoutLoading] = useState(false);
 
   useEffect(() => {
     fetchAffiliateData();
   }, [user]);
+
+  useEffect(() => {
+    // Check for Stripe Connect return
+    const stripeStatus = searchParams.get('stripe');
+    if (stripeStatus === 'success') {
+      toast.success('Stripe Connect setup completed!');
+      checkConnectStatus();
+    } else if (stripeStatus === 'refresh') {
+      toast.info('Please complete Stripe Connect setup');
+      handleConnectStripe();
+    }
+  }, [searchParams]);
 
   const fetchAffiliateData = async () => {
     if (!user) return;
     
     setLoading(true);
     
-    // Check if user is already an affiliate
     const { data: affiliateData, error } = await supabase
       .from('affiliates')
       .select('*')
@@ -79,15 +108,39 @@ export default function Affiliate() {
         totalConversions,
         conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0
       });
+
+      // Check connect status if they have a Stripe Connect ID
+      if (affiliateData.stripe_connect_id) {
+        checkConnectStatus();
+      }
     }
     
     setLoading(false);
   };
 
+  const checkConnectStatus = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-connect-status', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (!error && data) {
+        setConnectStatus(data);
+        // Refresh affiliate data if status changed
+        if (data.onboarded && affiliate && !affiliate.stripe_connect_onboarded) {
+          fetchAffiliateData();
+        }
+      }
+    } catch (err) {
+      console.error('Error checking connect status:', err);
+    }
+  };
+
   const becomeAffiliate = async () => {
     if (!user) return;
     
-    // Generate referral code
     const code = Math.random().toString(36).substring(2, 10).toUpperCase();
     
     const { data, error } = await supabase
@@ -109,6 +162,52 @@ export default function Affiliate() {
     }
   };
 
+  const handleConnectStripe = async () => {
+    setConnectLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('stripe-connect-onboard', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error('Error starting Stripe Connect:', err);
+      toast.error('Failed to start Stripe Connect setup');
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  const handleRequestPayout = async () => {
+    setPayoutLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('request-payout', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success(`Payout of $${data.amount.toFixed(2)} initiated!`);
+        fetchAffiliateData();
+      } else {
+        throw new Error(data?.error || 'Payout failed');
+      }
+    } catch (err: any) {
+      console.error('Error requesting payout:', err);
+      toast.error(err.message || 'Failed to request payout');
+    } finally {
+      setPayoutLoading(false);
+    }
+  };
+
   const copyReferralLink = () => {
     if (!affiliate) return;
     const link = `${window.location.origin}?ref=${affiliate.referral_code}`;
@@ -117,11 +216,16 @@ export default function Affiliate() {
   };
 
   const referralLink = affiliate ? `${window.location.origin}?ref=${affiliate.referral_code}` : '';
+  const canRequestPayout = affiliate && 
+    affiliate.stripe_connect_onboarded && 
+    Number(affiliate.pending_balance) >= Number(affiliate.min_payout_threshold);
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="text-center py-16 text-muted-foreground">Loading...</div>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </DashboardLayout>
     );
   }
@@ -170,6 +274,50 @@ export default function Affiliate() {
           <h1 className="text-3xl font-display font-bold mb-2">Affiliate Dashboard</h1>
           <p className="text-muted-foreground">Track your referrals and earnings</p>
         </div>
+
+        {/* Stripe Connect Status Banner */}
+        {!affiliate.stripe_connect_onboarded && (
+          <Card className="bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/30">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-8 w-8 text-orange-500" />
+                <div>
+                  <h3 className="font-semibold">Complete Stripe Setup</h3>
+                  <p className="text-sm text-muted-foreground">Connect your Stripe account to receive payouts</p>
+                </div>
+              </div>
+              <Button 
+                onClick={handleConnectStripe}
+                disabled={connectLoading}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                {connectLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Wallet className="h-4 w-4 mr-2" />
+                )}
+                Connect Stripe
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {affiliate.stripe_connect_onboarded && (
+          <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-8 w-8 text-green-500" />
+                <div>
+                  <h3 className="font-semibold text-green-500">Stripe Connected</h3>
+                  <p className="text-sm text-muted-foreground">You're all set to receive payouts</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="border-green-500 text-green-500">
+                Active
+              </Badge>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -232,7 +380,7 @@ export default function Affiliate() {
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">
-              Share this link to earn {affiliate.commission_rate}% on every subscription.
+              Share this link to earn {affiliate.commission_rate}% (${(5 * 0.5).toFixed(2)}) on every subscription.
             </p>
           </CardContent>
         </Card>
@@ -259,13 +407,13 @@ export default function Affiliate() {
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-gradient-to-r from-primary to-purple-500 p-6 rounded-lg text-center">
-                    <p className="text-lg font-bold text-primary-foreground">ThreadMaster</p>
+                    <p className="text-lg font-bold text-primary-foreground">ThreadPosts</p>
                     <p className="text-sm text-primary-foreground/80">Generate Viral Threads in Seconds</p>
                     <p className="text-xs mt-2 text-primary-foreground/60">300x250</p>
                   </div>
                   <div className="bg-gradient-to-r from-primary to-purple-500 p-4 rounded-lg flex items-center justify-between">
                     <div>
-                      <p className="font-bold text-primary-foreground">ThreadMaster</p>
+                      <p className="font-bold text-primary-foreground">ThreadPosts</p>
                       <p className="text-xs text-primary-foreground/80">Try Free</p>
                     </div>
                     <Button size="sm" variant="secondary">Start</Button>
@@ -285,12 +433,12 @@ export default function Affiliate() {
                   <p className="text-sm">
                     🧵 Want to create viral threads in seconds?
                     <br /><br />
-                    I've been using ThreadMaster to generate engaging content for Twitter, LinkedIn, and more.
+                    I've been using ThreadPosts to generate engaging content for Twitter, LinkedIn, and more.
                     <br /><br />
                     Try it free: {referralLink}
                   </p>
                   <Button size="sm" variant="outline" className="mt-3" onClick={() => {
-                    navigator.clipboard.writeText(`🧵 Want to create viral threads in seconds?\n\nI've been using ThreadMaster to generate engaging content for Twitter, LinkedIn, and more.\n\nTry it free: ${referralLink}`);
+                    navigator.clipboard.writeText(`🧵 Want to create viral threads in seconds?\n\nI've been using ThreadPosts to generate engaging content for Twitter, LinkedIn, and more.\n\nTry it free: ${referralLink}`);
                     toast.success('Copied!');
                   }}>
                     <Copy className="h-4 w-4 mr-2" />
@@ -311,7 +459,7 @@ export default function Affiliate() {
                     <br /><br />
                     I wanted to share something that's been a game-changer for my social media content.
                     <br /><br />
-                    ThreadMaster uses AI to generate viral threads in seconds. It's helped me grow my audience significantly.
+                    ThreadPosts uses AI to generate viral threads in seconds. It's helped me grow my audience significantly.
                     <br /><br />
                     Check it out: {referralLink}
                     <br /><br />
@@ -319,7 +467,7 @@ export default function Affiliate() {
                     [Your Name]
                   </p>
                   <Button size="sm" variant="outline" className="mt-3" onClick={() => {
-                    navigator.clipboard.writeText(`Subject: The tool that changed my content game\n\nHey [Name],\n\nI wanted to share something that's been a game-changer for my social media content.\n\nThreadMaster uses AI to generate viral threads in seconds. It's helped me grow my audience significantly.\n\nCheck it out: ${referralLink}\n\nBest,\n[Your Name]`);
+                    navigator.clipboard.writeText(`Subject: The tool that changed my content game\n\nHey [Name],\n\nI wanted to share something that's been a game-changer for my social media content.\n\nThreadPosts uses AI to generate viral threads in seconds. It's helped me grow my audience significantly.\n\nCheck it out: ${referralLink}\n\nBest,\n[Your Name]`);
                     toast.success('Copied!');
                   }}>
                     <Copy className="h-4 w-4 mr-2" />
@@ -348,15 +496,40 @@ export default function Affiliate() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Payouts are processed automatically when your balance reaches ${affiliate.min_payout_threshold}. 
+              Minimum payout threshold: ${affiliate.min_payout_threshold}. 
               {!affiliate.stripe_connect_onboarded && (
-                <span className="text-warning"> Connect your Stripe account to receive payouts.</span>
+                <span className="text-orange-500"> Connect your Stripe account to receive payouts.</span>
               )}
             </p>
-            {!affiliate.stripe_connect_onboarded && (
-              <Button className="gradient-primary">
-                Connect Stripe Account
-              </Button>
+            <div className="flex gap-2">
+              {!affiliate.stripe_connect_onboarded ? (
+                <Button onClick={handleConnectStripe} disabled={connectLoading} className="gradient-primary">
+                  {connectLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Wallet className="h-4 w-4 mr-2" />
+                  )}
+                  Connect Stripe Account
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleRequestPayout} 
+                  disabled={payoutLoading || !canRequestPayout}
+                  className="gradient-primary"
+                >
+                  {payoutLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <DollarSign className="h-4 w-4 mr-2" />
+                  )}
+                  Request Payout
+                </Button>
+              )}
+            </div>
+            {affiliate.stripe_connect_onboarded && !canRequestPayout && Number(affiliate.pending_balance) > 0 && (
+              <p className="text-sm text-muted-foreground">
+                You need ${(Number(affiliate.min_payout_threshold) - Number(affiliate.pending_balance)).toFixed(2)} more to reach the minimum payout threshold.
+              </p>
             )}
           </CardContent>
         </Card>
