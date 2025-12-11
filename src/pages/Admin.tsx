@@ -25,12 +25,14 @@ import {
   Image,
   Tag,
   FileText,
-  DollarSign
+  DollarSign,
+  CreditCard
 } from 'lucide-react';
 import AdminImageModeration from '@/components/AdminImageModeration';
 import AdminCategoryManager from '@/components/AdminCategoryManager';
 import AdminTemplateManager from '@/components/AdminTemplateManager';
 import AdminAffiliateManager from '@/components/AdminAffiliateManager';
+import AdminSubscriptionManager from '@/components/AdminSubscriptionManager';
 
 interface UserProfile {
   id: string;
@@ -309,6 +311,10 @@ export default function Admin() {
               <DollarSign className="h-4 w-4" />
               Affiliates
             </TabsTrigger>
+            <TabsTrigger value="subscriptions" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              Subscriptions
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
               Settings
@@ -503,6 +509,11 @@ export default function Admin() {
           {/* Affiliates Tab */}
           <TabsContent value="affiliates">
             <AdminAffiliateManager />
+          </TabsContent>
+
+          {/* Subscriptions Tab */}
+          <TabsContent value="subscriptions">
+            <AdminSubscriptionManager />
           </TabsContent>
 
           {/* Settings Tab */}
