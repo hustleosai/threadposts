@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import ImageUploadDialog from '@/components/ImageUploadDialog';
-import { Image, Download, Search, ExternalLink, Clock } from 'lucide-react';
+import { Image, Download, Search, ExternalLink, Clock, Lock, Crown, Sparkles } from 'lucide-react';
 
 interface ViralImage {
   id: string;
@@ -90,7 +91,8 @@ const sampleImages: ViralImage[] = [
 ];
 
 export default function Images() {
-  const { user } = useAuth();
+  const { user, subscribed, checkingSubscription } = useAuth();
+  const navigate = useNavigate();
   const [images, setImages] = useState<ViralImage[]>(sampleImages);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -140,6 +142,105 @@ export default function Images() {
     const matchesCategory = selectedCategory === null || image.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const handleUpgrade = async () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout');
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      toast.error('Failed to start checkout');
+    }
+  };
+
+  // Show paywall if not subscribed
+  if (!checkingSubscription && !subscribed) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-8">
+          <div>
+            <h1 className="text-3xl font-display font-bold mb-2">Viral Image Library</h1>
+            <p className="text-muted-foreground">Curated images that drive engagement</p>
+          </div>
+
+          {/* Blurred Preview */}
+          <div className="relative">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 blur-sm pointer-events-none select-none">
+              {sampleImages.slice(0, 8).map((image) => (
+                <Card key={image.id} className="bg-card border-border overflow-hidden">
+                  <CardContent className="p-0">
+                    <img
+                      src={image.image_url}
+                      alt={image.title}
+                      className="w-full aspect-square object-cover"
+                    />
+                    <div className="p-3">
+                      <p className="text-sm font-medium truncate">{image.title}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Paywall Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+              <Card className="max-w-md mx-4 border-primary/20 bg-card/95 backdrop-blur">
+                <CardContent className="p-8 text-center space-y-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
+                    <Lock className="h-8 w-8 text-primary" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-display font-bold">Unlock the Image Library</h2>
+                    <p className="text-muted-foreground">
+                      Get access to hundreds of viral-ready images to supercharge your social content.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                        <Sparkles className="h-3 w-3 text-primary" />
+                      </div>
+                      <span className="text-sm">Curated high-engagement images</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                        <Sparkles className="h-3 w-3 text-primary" />
+                      </div>
+                      <span className="text-sm">Organized by category & tags</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                        <Sparkles className="h-3 w-3 text-primary" />
+                      </div>
+                      <span className="text-sm">Instant download for any platform</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleUpgrade}
+                    size="lg" 
+                    className="w-full gap-2"
+                  >
+                    <Crown className="h-4 w-4" />
+                    {user ? 'Upgrade to Pro - $5/month' : 'Sign Up to Get Started'}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
