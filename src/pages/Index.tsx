@@ -66,7 +66,7 @@ function useCountUp(end: number, duration: number = 2000, startOnView: boolean =
 }
 
 const stats = [
-  { value: 50000, label: 'Threads Generated', suffix: '+', icon: FileText },
+  { value: 500000, label: 'Threads Generated', suffix: '+', icon: FileText },
   { value: 10000, label: 'Happy Creators', suffix: '+', icon: Users },
   { value: 4, label: 'Platforms Supported', suffix: '', icon: Globe },
   { value: 98, label: 'Satisfaction Rate', suffix: '%', icon: Star },
