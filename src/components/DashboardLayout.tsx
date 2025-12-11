@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="p-6 border-b border-border">
             <Link to="/" className="flex items-center gap-2">
               <Sparkles className="h-8 w-8 text-primary" />
-              <span className="text-xl font-display font-bold">ThreadMaster</span>
+              <span className="text-xl font-display font-bold">ThreadPosts</span>
             </Link>
           </div>
           
@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center justify-between p-4">
           <Link to="/" className="flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
-            <span className="font-display font-bold">ThreadMaster</span>
+            <span className="font-display font-bold">ThreadPosts</span>
           </Link>
           <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

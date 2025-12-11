@@ -73,7 +73,7 @@ const faqs = [
   },
   {
     question: 'Is there a free trial?',
-    answer: 'Yes! You can try ThreadMaster free with limited generations. Upgrade to premium for unlimited access.'
+    answer: 'Yes! You can try ThreadPosts free with limited generations. Upgrade to premium for unlimited access.'
   },
   {
     question: 'Can I cancel anytime?',
@@ -91,7 +91,7 @@ export default function Index() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <Sparkles className="h-8 w-8 text-primary" />
-            <span className="text-xl font-display font-bold">ThreadMaster</span>
+            <span className="text-xl font-display font-bold">ThreadPosts</span>
           </Link>
           <div className="flex items-center gap-4">
             {user ? (
@@ -272,7 +272,7 @@ export default function Index() {
             Ready to Create Viral Content?
           </h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of creators using ThreadMaster to grow their audience.
+            Join thousands of creators using ThreadPosts to grow their audience.
           </p>
           <Button asChild size="lg" className="gradient-primary glow-primary text-lg px-8 h-14">
             <Link to="/auth">
@@ -288,10 +288,10 @@ export default function Index() {
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
-            <span className="font-display font-bold">ThreadMaster</span>
+            <span className="font-display font-bold">ThreadPosts</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © 2024 ThreadMaster. All rights reserved.
+            © 2024 ThreadPosts. All rights reserved.
           </p>
         </div>
       </footer>

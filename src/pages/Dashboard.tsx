@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,9 @@ import {
   Heart,
   Twitter,
   Linkedin,
-  MessageCircle
+  MessageCircle,
+  Crown,
+  CreditCard
 } from 'lucide-react';
 
 const platforms = [
@@ -36,11 +38,67 @@ const quickTopics = [
 ];
 
 export default function Dashboard() {
-  const { user, session } = useAuth();
+  const { user, session, subscribed, checkSubscription, checkingSubscription } = useAuth();
+  const [searchParams] = useSearchParams();
   const [topic, setTopic] = useState('');
   const [platform, setPlatform] = useState('twitter');
   const [generatedThread, setGeneratedThread] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  // Check for successful checkout
+  useEffect(() => {
+    const checkout = searchParams.get('checkout');
+    if (checkout === 'success') {
+      toast.success('Subscription activated! Welcome to ThreadPosts Pro!');
+      checkSubscription();
+    } else if (checkout === 'canceled') {
+      toast.info('Checkout canceled');
+    }
+  }, [searchParams, checkSubscription]);
+
+  const handleSubscribe = async () => {
+    setCheckoutLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error);
+      toast.error('Failed to start checkout');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error opening portal:', error);
+      toast.error('Failed to open subscription management');
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const generateThread = async () => {
     if (!topic.trim()) {
@@ -119,6 +177,59 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
+        {/* Subscription Banner */}
+        {!subscribed && !checkingSubscription && (
+          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <Crown className="h-8 w-8 text-primary" />
+                <div>
+                  <h3 className="font-semibold">Upgrade to Pro</h3>
+                  <p className="text-sm text-muted-foreground">Get unlimited AI thread generation for $5/month</p>
+                </div>
+              </div>
+              <Button 
+                onClick={handleSubscribe} 
+                disabled={checkoutLoading}
+                className="gradient-primary"
+              >
+                {checkoutLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CreditCard className="h-4 w-4 mr-2" />
+                )}
+                Subscribe Now
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {subscribed && (
+          <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/5 border-green-500/20">
+            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <Crown className="h-8 w-8 text-green-500" />
+                <div>
+                  <h3 className="font-semibold text-green-500">Pro Member</h3>
+                  <p className="text-sm text-muted-foreground">Unlimited AI thread generation</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+              >
+                {portalLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CreditCard className="h-4 w-4 mr-2" />
+                )}
+                Manage Subscription
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <div>
           <h1 className="text-3xl font-display font-bold mb-2">AI Thread Generator</h1>
           <p className="text-muted-foreground">Create viral threads for any platform in seconds</p>
