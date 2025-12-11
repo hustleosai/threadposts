@@ -26,13 +26,15 @@ import {
   Tag,
   FileText,
   DollarSign,
-  CreditCard
+  CreditCard,
+  BarChart3
 } from 'lucide-react';
 import AdminImageModeration from '@/components/AdminImageModeration';
 import AdminCategoryManager from '@/components/AdminCategoryManager';
 import AdminTemplateManager from '@/components/AdminTemplateManager';
 import AdminAffiliateManager from '@/components/AdminAffiliateManager';
 import AdminSubscriptionManager from '@/components/AdminSubscriptionManager';
+import AdminAnalytics from '@/components/AdminAnalytics';
 
 interface UserProfile {
   id: string;
@@ -285,8 +287,12 @@ export default function Admin() {
           </Card>
         </div>
 
-        <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="bg-secondary">
+        <Tabs defaultValue="analytics" className="space-y-6">
+          <TabsList className="bg-secondary flex-wrap">
+            <TabsTrigger value="analytics" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
             <TabsTrigger value="users" className="gap-2">
               <Users className="h-4 w-4" />
               Users
@@ -320,6 +326,11 @@ export default function Admin() {
               Settings
             </TabsTrigger>
           </TabsList>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics">
+            <AdminAnalytics />
+          </TabsContent>
 
           {/* Users Tab */}
           <TabsContent value="users">
