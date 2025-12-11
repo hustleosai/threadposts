@@ -289,19 +289,6 @@ export default function AdminAnalytics() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-rose-500/10">
-                <Percent className="h-5 w-5 text-rose-500" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Conversion Rate</p>
-                <p className="text-xl font-bold">{totals.conversionRate.toFixed(1)}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Conversion Funnel */}
