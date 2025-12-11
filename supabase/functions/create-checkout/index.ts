@@ -87,78 +87,8 @@ serve(async (req) => {
 
     logStep("Checkout session created", { sessionId: session.id, metadata });
 
-    // If there's an affiliate, record the conversion and add commission
-    if (affiliateId) {
-      // Record conversion
-      const { error: conversionError } = await supabaseClient
-        .from('referral_conversions')
-        .insert({
-          affiliate_id: affiliateId,
-          referred_user_id: user.id,
-        });
-
-      if (conversionError) {
-        logStep("Error recording conversion", { error: conversionError });
-      } else {
-        logStep("Conversion recorded");
-      }
-
-      // Add commission to pending balance
-      const commissionAmount = SUBSCRIPTION_PRICE * COMMISSION_RATE;
-      
-      // Get current affiliate data
-      const { data: affiliate } = await supabaseClient
-        .from('affiliates')
-        .select('pending_balance, min_payout_threshold')
-        .eq('id', affiliateId)
-        .single();
-
-      if (affiliate) {
-        const currentBalance = Number(affiliate.pending_balance) || 0;
-        const threshold = Number(affiliate.min_payout_threshold) || 25;
-        const newBalance = currentBalance + commissionAmount;
-        const wasUnderThreshold = currentBalance < threshold;
-        const nowAtOrOverThreshold = newBalance >= threshold;
-        
-        await supabaseClient
-          .from('affiliates')
-          .update({ pending_balance: newBalance })
-          .eq('id', affiliateId);
-
-        // Record earning
-        await supabaseClient
-          .from('affiliate_earnings')
-          .insert({
-            affiliate_id: affiliateId,
-            amount: commissionAmount,
-            stripe_payment_id: session.id,
-          });
-
-        logStep("Commission added", { affiliateId, commissionAmount, newBalance });
-
-        // Send threshold notification if they just crossed it
-        if (wasUnderThreshold && nowAtOrOverThreshold) {
-          logStep("Affiliate crossed payout threshold, sending notification");
-          try {
-            await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-threshold-notification`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              },
-              body: JSON.stringify({
-                affiliate_id: affiliateId,
-                new_balance: newBalance,
-                threshold: threshold,
-              }),
-            });
-            logStep("Threshold notification sent");
-          } catch (notifError) {
-            logStep("Failed to send threshold notification", { error: notifError });
-          }
-        }
-      }
-    }
+    // Note: Commission recording is now handled by stripe-webhook after successful payment
+    // The affiliate_id is stored in session/subscription metadata for webhook processing
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
