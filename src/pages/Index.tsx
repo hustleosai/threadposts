@@ -77,6 +77,20 @@ const exampleThreads = [
     ]
   },
   {
+    platform: 'facebook',
+    platformName: 'Facebook',
+    icon: MessageCircle,
+    topic: 'Personal Growth',
+    posts: [
+      "10 years ago, I was broke, lost, and had no direction.\n\nToday, I run a 7-figure business and wake up excited every morning.\n\nHere's what changed everything for me... 👇",
+      "1️⃣ I stopped waiting for the \"perfect moment.\"\n\nThere's never a perfect time to start. I launched my first business from my parents' basement with $500 and a laptop.\n\nStart messy. Improve as you go.",
+      "2️⃣ I invested in myself before anything else.\n\nBooks. Courses. Mentors.\n\nThe ROI on self-education is infinite. While others bought new cars, I bought knowledge.",
+      "3️⃣ I surrounded myself with people 10 steps ahead.\n\nYou become the average of the 5 people you spend the most time with.\n\nI found my tribe online and at local meetups. It changed my trajectory.",
+      "4️⃣ I embraced failure as feedback.\n\nMy first 3 businesses failed. Each one taught me what NOT to do.\n\nFailure isn't the opposite of success—it's part of it.",
+      "5️⃣ I focused on solving ONE problem really well.\n\nI stopped chasing every opportunity and went deep instead of wide.\n\nMastery beats mediocrity every time.\n\n💬 What's ONE thing that changed your life? Drop it in the comments!\n\n❤️ Like & Share if this helped you!"
+    ]
+  },
+  {
     platform: 'threads',
     platformName: 'Threads',
     icon: Hash,
