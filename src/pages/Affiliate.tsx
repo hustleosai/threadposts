@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import AffiliateLeaderboard from '@/components/AffiliateLeaderboard';
 import { 
   Users, 
   DollarSign, 
@@ -413,6 +414,12 @@ export default function Affiliate() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Leaderboard */}
+        <AffiliateLeaderboard 
+          currentAffiliateId={affiliate.id} 
+          currentReferralCode={affiliate.referral_code} 
+        />
 
         {/* Referral Link */}
         <Card className="bg-card border-border">
