@@ -18,6 +18,7 @@ const referralCodeSchema = z.string()
 interface AffiliateProfileProps {
   affiliateId: string;
   currentReferralCode: string;
+  referralLink: string;
   onUpdate: () => void;
 }
 
@@ -39,7 +40,7 @@ const getShareMessages = (referralLink: string) => ({
   threads: `Creating viral content just got easier! 🧵\n\nI use ThreadPosts to generate AI-powered threads that actually engage my audience.\n\nTry it yourself: ${referralLink}`,
 });
 
-export default function AffiliateProfile({ affiliateId, currentReferralCode, onUpdate }: AffiliateProfileProps) {
+export default function AffiliateProfile({ affiliateId, currentReferralCode, referralLink, onUpdate }: AffiliateProfileProps) {
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -48,8 +49,6 @@ export default function AffiliateProfile({ affiliateId, currentReferralCode, onU
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const referralLink = `${window.location.origin}?ref=${currentReferralCode}`;
   const shareMessages = getShareMessages(referralLink);
 
   useEffect(() => {
