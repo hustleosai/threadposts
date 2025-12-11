@@ -11,6 +11,9 @@ const logStep = (step: string, details?: any) => {
   console.log(`[TRACK-REFERRAL] ${step}${detailsStr}`);
 };
 
+// Rate limit: 1 click per IP per referral code per hour
+const RATE_LIMIT_HOURS = 1;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -30,7 +33,12 @@ serve(async (req) => {
     if (!referral_code) {
       throw new Error("Referral code is required");
     }
-    logStep("Processing referral", { referral_code, source });
+    
+    // Get IP address for rate limiting
+    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
+    const cleanIp = ipAddress.split(",")[0].trim();
+    
+    logStep("Processing referral", { referral_code, source, ip: cleanIp });
 
     // Find affiliate by referral code
     const { data: affiliate, error: affiliateError } = await supabaseClient
@@ -47,15 +55,42 @@ serve(async (req) => {
       });
     }
 
+    // Rate limiting: Check if this IP has clicked this affiliate's link recently
+    const rateLimitTime = new Date();
+    rateLimitTime.setHours(rateLimitTime.getHours() - RATE_LIMIT_HOURS);
+    
+    const { data: recentClicks, error: rateCheckError } = await supabaseClient
+      .from('referral_clicks')
+      .select('id')
+      .eq('affiliate_id', affiliate.id)
+      .eq('ip_address', cleanIp)
+      .gte('created_at', rateLimitTime.toISOString())
+      .limit(1);
+
+    if (rateCheckError) {
+      logStep("Rate limit check error", { error: rateCheckError });
+    }
+
+    if (recentClicks && recentClicks.length > 0) {
+      logStep("Rate limited - duplicate click", { affiliateId: affiliate.id, ip: cleanIp });
+      // Return success to avoid revealing rate limiting to potential attackers
+      return new Response(JSON.stringify({ 
+        success: true, 
+        affiliate_id: affiliate.id 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     // Track the click
-    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
     const { error: clickError } = await supabaseClient
       .from('referral_clicks')
       .insert({
         affiliate_id: affiliate.id,
-        ip_address: ipAddress.split(",")[0].trim(),
+        ip_address: cleanIp,
         user_agent: userAgent.substring(0, 500),
         source: source || "direct",
       });
