@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
+import { usePlatformStats } from '@/hooks/usePlatformStats';
 import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash, Users, FileText, Globe, MousePointerClick, Layers, Wand2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
@@ -65,15 +66,15 @@ function useCountUp(end: number, duration: number = 2000, startOnView: boolean =
   return { count, ref };
 }
 
-const stats = [
-  { value: 500000, label: 'Threads Generated', suffix: '+', icon: FileText },
-  { value: 10000, label: 'Happy Creators', suffix: '+', icon: Users },
+const getStats = (threadsGenerated: number, happyCreators: number) => [
+  { value: threadsGenerated, label: 'Threads Generated', suffix: '+', icon: FileText },
+  { value: happyCreators, label: 'Happy Creators', suffix: '+', icon: Users },
   { value: 4, label: 'Platforms Supported', suffix: '', icon: Globe },
   { value: 98, label: 'Satisfaction Rate', suffix: '%', icon: Star },
 ];
 
-// Stat card component with animated counter
-function StatCard({ stat, index }: { stat: typeof stats[0], index: number }) {
+type StatType = { value: number; label: string; suffix: string; icon: typeof FileText };
+function StatCard({ stat, index }: { stat: StatType, index: number }) {
   const { count, ref } = useCountUp(stat.value, 2000);
   const Icon = stat.icon;
   
@@ -213,6 +214,13 @@ export default function Index() {
     user
   } = useAuth();
   const [selectedExample, setSelectedExample] = useState('twitter');
+  const { data: platformStats } = usePlatformStats();
+  
+  const stats = getStats(
+    platformStats?.threadsGenerated ?? 500000,
+    platformStats?.happyCreators ?? 10000
+  );
+  
   // Track affiliate referrals when users arrive via ?ref= links
   useAffiliateTracking();
   return <div className="min-h-screen bg-background">
@@ -250,7 +258,7 @@ export default function Index() {
         <div className="container mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
             <Star className="h-4 w-4 text-primary" />
-            <span className="text-sm text-primary">Trusted by 10,000+ creators</span>
+            <span className="text-sm text-primary">Trusted by {(platformStats?.happyCreators ?? 10000).toLocaleString()}+ creators</span>
           </div>
           
           <h1 className="text-5xl md:text-7xl font-display font-bold mb-6 animate-fade-in">
