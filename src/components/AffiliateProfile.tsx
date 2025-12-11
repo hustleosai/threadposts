@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { Loader2, Camera, Save, Check, X } from 'lucide-react';
+import { Loader2, Camera, Check, X, Share2, Twitter, Linkedin, Facebook, Link, MessageCircle } from 'lucide-react';
 import { z } from 'zod';
 
 const referralCodeSchema = z.string()
@@ -31,6 +31,14 @@ const getGravatarUrl = (email: string, size: number = 200) => {
   return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=identicon`;
 };
 
+// Social share messages
+const getShareMessages = (referralLink: string) => ({
+  twitter: `🚀 Create viral social media threads in seconds with AI!\n\nI use ThreadPosts to generate engaging content for Twitter, LinkedIn, Threads & Facebook.\n\nTry it free: ${referralLink}`,
+  linkedin: `Looking to level up your content game?\n\nI've been using ThreadPosts to create engaging threads and posts using AI. It's been a game-changer for my social media strategy.\n\n✅ AI-powered thread generation\n✅ Optimized for multiple platforms\n✅ Professional templates included\n\nCheck it out: ${referralLink}`,
+  facebook: `Just discovered an amazing tool for creating viral social media content! 🔥\n\nThreadPosts uses AI to generate engaging threads for Twitter, LinkedIn, Threads, and Facebook in seconds.\n\nHighly recommend checking it out: ${referralLink}`,
+  threads: `Creating viral content just got easier! 🧵\n\nI use ThreadPosts to generate AI-powered threads that actually engage my audience.\n\nTry it yourself: ${referralLink}`,
+});
+
 export default function AffiliateProfile({ affiliateId, currentReferralCode, onUpdate }: AffiliateProfileProps) {
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -40,6 +48,9 @@ export default function AffiliateProfile({ affiliateId, currentReferralCode, onU
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const referralLink = `${window.location.origin}?ref=${currentReferralCode}`;
+  const shareMessages = getShareMessages(referralLink);
 
   useEffect(() => {
     fetchProfile();
@@ -148,6 +159,35 @@ export default function AffiliateProfile({ affiliateId, currentReferralCode, onU
     }
   };
 
+  const handleShare = (platform: 'twitter' | 'linkedin' | 'facebook' | 'threads') => {
+    const message = shareMessages[platform];
+    let shareUrl = '';
+
+    switch (platform) {
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`;
+        break;
+      case 'linkedin':
+        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(referralLink)}&summary=${encodeURIComponent(message)}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}&quote=${encodeURIComponent(message)}`;
+        break;
+      case 'threads':
+        // Threads doesn't have a direct share API, so copy to clipboard
+        navigator.clipboard.writeText(message);
+        toast.success('Post copied! Paste it in Threads app');
+        return;
+    }
+
+    window.open(shareUrl, '_blank', 'width=600,height=400');
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(referralLink);
+    toast.success('Referral link copied!');
+  };
+
   const avatarUrl = profile?.avatar_url || (user?.email ? getGravatarUrl(user.email) : null);
   const initials = profile?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || user?.email?.[0].toUpperCase() || '?';
 
@@ -244,6 +284,64 @@ export default function AffiliateProfile({ affiliateId, currentReferralCode, onU
           )}
           <p className="text-xs text-muted-foreground">
             Customize your referral code to make it memorable. Only letters, numbers, underscores, and hyphens.
+          </p>
+        </div>
+
+        {/* Social Share Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Share2 className="h-4 w-4 text-muted-foreground" />
+            <Label>Share Your Referral Link</Label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleShare('twitter')}
+              className="gap-2 hover:bg-[#1DA1F2]/10 hover:text-[#1DA1F2] hover:border-[#1DA1F2]/50"
+            >
+              <Twitter className="h-4 w-4" />
+              Twitter/X
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleShare('linkedin')}
+              className="gap-2 hover:bg-[#0A66C2]/10 hover:text-[#0A66C2] hover:border-[#0A66C2]/50"
+            >
+              <Linkedin className="h-4 w-4" />
+              LinkedIn
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleShare('facebook')}
+              className="gap-2 hover:bg-[#1877F2]/10 hover:text-[#1877F2] hover:border-[#1877F2]/50"
+            >
+              <Facebook className="h-4 w-4" />
+              Facebook
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleShare('threads')}
+              className="gap-2 hover:bg-foreground/10"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Threads
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copyLink}
+              className="gap-2"
+            >
+              <Link className="h-4 w-4" />
+              Copy Link
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Share on social media with pre-filled posts to attract referrals.
           </p>
         </div>
       </CardContent>
