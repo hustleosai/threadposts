@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Users, MessageSquare, TrendingUp, CreditCard, DollarSign, UserPlus } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { Loader2, Users, MessageSquare, TrendingUp, CreditCard, DollarSign, UserPlus, Percent } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
 
 interface DailyStats {
   date: string;
   users: number;
   threads: number;
+  subscriptions: number;
 }
 
 interface PlatformStats {
@@ -24,6 +25,7 @@ export default function AdminAnalytics() {
   const [dateRange, setDateRange] = useState('30');
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [platformStats, setPlatformStats] = useState<PlatformStats[]>([]);
+  const [conversionData, setConversionData] = useState<{ date: string; rate: number }[]>([]);
   const [totals, setTotals] = useState({
     totalUsers: 0,
     totalThreads: 0,
@@ -31,6 +33,8 @@ export default function AdminAnalytics() {
     totalEarnings: 0,
     newUsersToday: 0,
     threadsToday: 0,
+    conversionRate: 0,
+    newSubscriptionsToday: 0,
   });
 
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function AdminAnalytics() {
       ] = await Promise.all([
         supabase.from('profiles').select('created_at'),
         supabase.from('thread_history').select('created_at, platform'),
-        supabase.from('user_billing').select('subscription_status'),
+        supabase.from('user_billing').select('subscription_status, created_at, updated_at'),
         supabase.from('affiliate_earnings').select('amount'),
         supabase.from('thread_history').select('platform'),
       ]);
@@ -63,9 +67,15 @@ export default function AdminAnalytics() {
       const totalUsers = usersResult.data?.length || 0;
       const totalThreads = threadsResult.data?.length || 0;
       const activeSubscriptions = subscriptionsResult.data?.filter(
-        s => s.subscription_status === 'active' || s.subscription_status === 'trialing'
+        s => s.subscription_status === 'active'
+      ).length || 0;
+      const totalPaidUsers = subscriptionsResult.data?.filter(
+        s => s.subscription_status === 'active' || s.subscription_status === 'canceled'
       ).length || 0;
       const totalEarnings = earningsResult.data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      
+      // Calculate conversion rate
+      const conversionRate = totalUsers > 0 ? (totalPaidUsers / totalUsers) * 100 : 0;
 
       // Calculate today's stats
       const today = startOfDay(new Date());
@@ -75,6 +85,9 @@ export default function AdminAnalytics() {
       const threadsToday = threadsResult.data?.filter(
         t => new Date(t.created_at) >= today
       ).length || 0;
+      const newSubscriptionsToday = subscriptionsResult.data?.filter(
+        s => s.subscription_status === 'active' && new Date(s.updated_at) >= today
+      ).length || 0;
 
       setTotals({
         totalUsers,
@@ -83,12 +96,13 @@ export default function AdminAnalytics() {
         totalEarnings,
         newUsersToday,
         threadsToday,
+        conversionRate,
+        newSubscriptionsToday,
       });
 
       // Build daily stats for the chart
       const dateInterval = eachDayOfInterval({ start: startDate, end: endDate });
       const dailyData: DailyStats[] = dateInterval.map(date => {
-        const dateStr = format(date, 'yyyy-MM-dd');
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
 
@@ -102,14 +116,47 @@ export default function AdminAnalytics() {
           return created >= dayStart && created <= dayEnd;
         }).length || 0;
 
+        const subscriptionsOnDay = subscriptionsResult.data?.filter(s => {
+          const updated = new Date(s.updated_at);
+          return s.subscription_status === 'active' && updated >= dayStart && updated <= dayEnd;
+        }).length || 0;
+
         return {
           date: format(date, 'MMM dd'),
           users: usersOnDay,
           threads: threadsOnDay,
+          subscriptions: subscriptionsOnDay,
         };
       });
 
       setDailyStats(dailyData);
+
+      // Calculate cumulative conversion data
+      let cumulativeUsers = 0;
+      let cumulativeSubscriptions = 0;
+      const conversionTrend = dateInterval.map(date => {
+        const dayStart = startOfDay(date);
+        const dayEnd = endOfDay(date);
+
+        cumulativeUsers += usersResult.data?.filter(u => {
+          const created = new Date(u.created_at);
+          return created >= dayStart && created <= dayEnd;
+        }).length || 0;
+
+        cumulativeSubscriptions += subscriptionsResult.data?.filter(s => {
+          const updated = new Date(s.updated_at);
+          return s.subscription_status === 'active' && updated >= dayStart && updated <= dayEnd;
+        }).length || 0;
+
+        const rate = cumulativeUsers > 0 ? (cumulativeSubscriptions / cumulativeUsers) * 100 : 0;
+
+        return {
+          date: format(date, 'MMM dd'),
+          rate: Math.round(rate * 10) / 10,
+        };
+      });
+
+      setConversionData(conversionTrend);
 
       // Calculate platform distribution
       const platformCounts: Record<string, number> = {};
@@ -241,7 +288,84 @@ export default function AdminAnalytics() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="bg-card border-border">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-rose-500/10">
+                <Percent className="h-5 w-5 text-rose-500" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Conversion Rate</p>
+                <p className="text-xl font-bold">{totals.conversionRate.toFixed(1)}%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Conversion Funnel */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-lg">Conversion Funnel</CardTitle>
+          <CardDescription>Signup to subscription conversion</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="p-4 rounded-lg bg-secondary/50 text-center">
+              <p className="text-3xl font-bold text-foreground">{totals.totalUsers}</p>
+              <p className="text-sm text-muted-foreground">Total Signups</p>
+            </div>
+            <div className="p-4 rounded-lg bg-secondary/50 text-center">
+              <p className="text-3xl font-bold text-foreground">{totals.activeSubscriptions}</p>
+              <p className="text-sm text-muted-foreground">Active Subscriptions</p>
+            </div>
+            <div className="p-4 rounded-lg bg-primary/10 text-center border border-primary/20">
+              <p className="text-3xl font-bold text-primary">{totals.conversionRate.toFixed(1)}%</p>
+              <p className="text-sm text-muted-foreground">Conversion Rate</p>
+            </div>
+          </div>
+          <div className="h-[250px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={conversionData}>
+                <defs>
+                  <linearGradient id="conversionGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  unit="%"
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  formatter={(value: number) => [`${value}%`, 'Conversion Rate']}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
