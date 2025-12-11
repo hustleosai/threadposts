@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useImageCategories } from '@/hooks/useImageCategories';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,10 +25,9 @@ interface PendingImage {
   created_at: string;
 }
 
-const CATEGORIES = ['Motivation', 'Tech', 'Business', 'Lifestyle', 'Education', 'Finance', 'Health', 'Other'];
-
 export default function AdminImageModeration() {
   const { user } = useAuth();
+  const { categoryNames, loading: categoriesLoading } = useImageCategories();
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -238,12 +238,12 @@ export default function AdminImageModeration() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="admin-category">Category *</Label>
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select value={category} onValueChange={setCategory} disabled={categoriesLoading}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={categoriesLoading ? "Loading..." : "Select category"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((cat) => (
+                      {categoryNames.map((cat) => (
                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                       ))}
                     </SelectContent>
