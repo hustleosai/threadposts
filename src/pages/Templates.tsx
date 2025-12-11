@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Layout, Star, Copy, Twitter, Linkedin, MessageCircle, Sparkles, Lock, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 interface Template {
   id: string;
@@ -97,6 +98,7 @@ export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>(sampleTemplates);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { subscribed, session } = useAuth();
+  const { isAdmin } = useIsAdmin();
 
   useEffect(() => {
     fetchTemplates();
@@ -147,8 +149,8 @@ export default function Templates() {
 
   const categories = Array.from(new Set(templates.map(t => t.category)));
 
-  // Show paywall for non-subscribed users
-  if (!subscribed) {
+  // Show paywall for non-subscribed users (admins always have access)
+  if (!subscribed && !isAdmin) {
     return (
       <DashboardLayout>
         <div className="space-y-8">

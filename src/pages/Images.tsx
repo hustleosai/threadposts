@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,6 +86,7 @@ export default function Images() {
     subscribed,
     checkingSubscription
   } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const [images, setImages] = useState<ViralImage[]>(sampleImages);
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,8 +149,8 @@ export default function Images() {
     }
   };
 
-  // Show paywall if not subscribed
-  if (!checkingSubscription && !subscribed) {
+  // Show paywall if not subscribed (admins always have access)
+  if (!checkingSubscription && !subscribed && !isAdmin) {
     return <DashboardLayout>
         <div className="space-y-8">
           <div>
