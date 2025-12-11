@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Image, Download, Search, ExternalLink } from 'lucide-react';
+import ImageUploadDialog from '@/components/ImageUploadDialog';
+import { Image, Download, Search, ExternalLink, Clock } from 'lucide-react';
 
 interface ViralImage {
   id: string;
@@ -14,6 +17,8 @@ interface ViralImage {
   image_url: string;
   category: string;
   tags: string[] | null;
+  status?: string;
+  uploaded_by?: string | null;
 }
 
 // Sample images for demo
@@ -85,6 +90,7 @@ const sampleImages: ViralImage[] = [
 ];
 
 export default function Images() {
+  const { user } = useAuth();
   const [images, setImages] = useState<ViralImage[]>(sampleImages);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -103,6 +109,9 @@ export default function Images() {
       setImages(data);
     }
   };
+
+  const myPendingImages = images.filter(img => img.status === 'pending' && img.uploaded_by === user?.id);
+  const approvedImages = images.filter(img => img.status === 'approved' || !img.status);
 
   const downloadImage = async (url: string, title: string) => {
     try {
@@ -135,10 +144,46 @@ export default function Images() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-display font-bold mb-2">Viral Image Library</h1>
-          <p className="text-muted-foreground">Curated images that drive engagement</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-display font-bold mb-2">Viral Image Library</h1>
+            <p className="text-muted-foreground">Curated images that drive engagement</p>
+          </div>
+          {user && (
+            <ImageUploadDialog onSuccess={fetchImages} />
+          )}
         </div>
+
+        {/* My Pending Submissions */}
+        {myPendingImages.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Clock className="h-5 w-5 text-yellow-500" />
+              Your Pending Submissions
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {myPendingImages.map((image) => (
+                <Card key={image.id} className="bg-card border-border overflow-hidden opacity-75">
+                  <CardContent className="p-0 relative">
+                    <img
+                      src={image.image_url}
+                      alt={image.title}
+                      className="w-full aspect-square object-cover"
+                    />
+                    <div className="absolute top-2 left-2 flex gap-1">
+                      <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-500">
+                        Pending Review
+                      </Badge>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-sm font-medium truncate">{image.title}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -174,7 +219,7 @@ export default function Images() {
 
         {/* Images Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredImages.map((image) => (
+          {filteredImages.filter(img => img.status === 'approved' || !img.status).map((image) => (
             <Card key={image.id} className="bg-card border-border overflow-hidden group">
               <CardContent className="p-0 relative">
                 <img
