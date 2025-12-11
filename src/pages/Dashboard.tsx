@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ const quickTopics = [
 
 export default function Dashboard() {
   const { user, session, subscribed, checkSubscription, checkingSubscription } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const { getAffiliateId, clearAffiliateId } = useAffiliateTracking();
   const [searchParams] = useSearchParams();
   const [topic, setTopic] = useState('');
@@ -57,7 +59,7 @@ export default function Dashboard() {
   const [loadingCount, setLoadingCount] = useState(true);
 
   const remainingGenerations = Math.max(0, FREE_GENERATION_LIMIT - generationCount);
-  const hasReachedLimit = !subscribed && generationCount >= FREE_GENERATION_LIMIT;
+  const hasReachedLimit = !subscribed && !isAdmin && generationCount >= FREE_GENERATION_LIMIT;
 
   // Fetch generation count
   useEffect(() => {
@@ -145,8 +147,8 @@ export default function Dashboard() {
       return;
     }
 
-    // Check generation limit for non-subscribers
-    if (!subscribed && generationCount >= FREE_GENERATION_LIMIT) {
+    // Check generation limit for non-subscribers (admins bypass)
+    if (!subscribed && !isAdmin && generationCount >= FREE_GENERATION_LIMIT) {
       toast.error('You have reached your free generation limit. Upgrade to Pro for unlimited generations!');
       return;
     }
