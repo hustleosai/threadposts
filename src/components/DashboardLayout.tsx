@@ -4,6 +4,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Sparkles, 
   Zap, 
@@ -15,7 +16,15 @@ import {
   Menu,
   X,
   Shield,
-  Crown
+  Crown,
+  ChevronDown,
+  BarChart3,
+  MessageSquare,
+  Tag,
+  FileText,
+  DollarSign,
+  CreditCard,
+  Settings
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -28,8 +37,16 @@ const navigation = [
   { name: 'Affiliate', href: '/affiliate', icon: Users, isPro: false },
 ];
 
-const adminNavigation = [
-  { name: 'Admin', href: '/admin', icon: Shield },
+const adminSubNav = [
+  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+  { name: 'Users', href: '/admin/users', icon: Users },
+  { name: 'Threads', href: '/admin/threads', icon: MessageSquare },
+  { name: 'Images', href: '/admin/images', icon: Image },
+  { name: 'Categories', href: '/admin/categories', icon: Tag },
+  { name: 'Templates', href: '/admin/templates', icon: FileText },
+  { name: 'Affiliates', href: '/admin/affiliates', icon: DollarSign },
+  { name: 'Subscriptions', href: '/admin/subscriptions', icon: CreditCard },
+  { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -37,8 +54,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isAdmin } = useIsAdmin();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(location.pathname.startsWith('/admin'));
 
-  const allNavigation = isAdmin ? [...navigation, ...adminNavigation] : navigation;
+  const isAdminActive = location.pathname.startsWith('/admin');
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,8 +71,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <ThemeToggle />
           </div>
           
-          <nav className="flex-1 p-4 space-y-1">
-            {allNavigation.map((item) => (
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+            {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -62,13 +80,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
                   location.pathname === item.href
                     ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-                  item.name === 'Admin' && 'border border-primary/30'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                 )}
               >
                 <item.icon className="h-5 w-5" />
                 <span className="flex-1">{item.name}</span>
-                {'isPro' in item && item.isPro && (
+                {item.isPro && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/50 text-primary bg-primary/10">
                     <Crown className="h-2.5 w-2.5 mr-0.5" />
                     PRO
@@ -76,6 +93,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </Link>
             ))}
+
+            {/* Admin Submenu */}
+            {isAdmin && (
+              <Collapsible open={adminOpen} onOpenChange={setAdminOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full',
+                      isAdminActive
+                        ? 'bg-primary/10 text-primary border border-primary/30'
+                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent'
+                    )}
+                  >
+                    <Shield className="h-5 w-5" />
+                    <span className="flex-1 text-left">Admin</span>
+                    <ChevronDown className={cn(
+                      'h-4 w-4 transition-transform',
+                      adminOpen && 'rotate-180'
+                    )} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                  {adminSubNav.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                        location.pathname === item.href
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </nav>
           
           <div className="p-4 border-t border-border">
@@ -120,8 +177,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <nav className="p-4 border-t border-border bg-card">
-            {allNavigation.map((item) => (
+          <nav className="p-4 border-t border-border bg-card max-h-[70vh] overflow-y-auto">
+            {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -130,13 +187,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium',
                   location.pathname === item.href
                     ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground',
-                  item.name === 'Admin' && 'border border-primary/30'
+                    : 'text-muted-foreground'
                 )}
               >
                 <item.icon className="h-5 w-5" />
                 <span className="flex-1">{item.name}</span>
-                {'isPro' in item && item.isPro && (
+                {item.isPro && (
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/50 text-primary bg-primary/10">
                     <Crown className="h-2.5 w-2.5 mr-0.5" />
                     PRO
@@ -144,6 +200,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </Link>
             ))}
+            
+            {/* Admin submenu for mobile */}
+            {isAdmin && (
+              <Collapsible open={adminOpen} onOpenChange={setAdminOpen}>
+                <CollapsibleTrigger asChild>
+                  <button
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors w-full',
+                      isAdminActive
+                        ? 'bg-primary/10 text-primary border border-primary/30'
+                        : 'text-muted-foreground border border-transparent'
+                    )}
+                  >
+                    <Shield className="h-5 w-5" />
+                    <span className="flex-1 text-left">Admin</span>
+                    <ChevronDown className={cn(
+                      'h-4 w-4 transition-transform',
+                      adminOpen && 'rotate-180'
+                    )} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                  {adminSubNav.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                        location.pathname === item.href
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            
             <Button variant="ghost" className="w-full justify-start mt-4" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out

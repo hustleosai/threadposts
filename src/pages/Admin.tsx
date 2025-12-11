@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,27 +7,16 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { 
-  Users, 
-  MessageSquare, 
-  Settings, 
   Loader2, 
   Shield, 
   Search,
   Trash2,
-  Crown,
   ShieldPlus,
-  ShieldMinus,
-  Image,
-  Tag,
-  FileText,
-  DollarSign,
-  CreditCard,
-  BarChart3
+  ShieldMinus
 } from 'lucide-react';
 import AdminImageModeration from '@/components/AdminImageModeration';
 import AdminCategoryManager from '@/components/AdminCategoryManager';
@@ -64,6 +53,7 @@ interface UserRole {
 
 export default function Admin() {
   const navigate = useNavigate();
+  const { section } = useParams<{ section: string }>();
   const { user } = useAuth();
   const { isAdmin, loading: adminLoading } = useIsAdmin();
   
@@ -75,12 +65,22 @@ export default function Admin() {
   const [userSearch, setUserSearch] = useState('');
   const [threadSearch, setThreadSearch] = useState('');
 
+  // Default to analytics if no section specified
+  const currentSection = section || 'analytics';
+
   useEffect(() => {
     if (!adminLoading && !isAdmin) {
       toast.error('Access denied. Admin privileges required.');
       navigate('/dashboard');
     }
   }, [isAdmin, adminLoading, navigate]);
+
+  // Redirect /admin to /admin/analytics
+  useEffect(() => {
+    if (!section && isAdmin && !adminLoading) {
+      navigate('/admin/analytics', { replace: true });
+    }
+  }, [section, isAdmin, adminLoading, navigate]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -145,7 +145,6 @@ export default function Admin() {
   };
 
   const grantAdminRole = async (userId: string) => {
-    // Prevent removing your own admin role
     if (isUserAdmin(userId)) {
       toast.error('User already has admin role');
       return;
@@ -166,7 +165,6 @@ export default function Admin() {
   };
 
   const revokeAdminRole = async (userId: string) => {
-    // Prevent removing your own admin role
     if (userId === user?.id) {
       toast.error("You cannot revoke your own admin role");
       return;
@@ -233,6 +231,238 @@ export default function Admin() {
     return null;
   }
 
+  const renderContent = () => {
+    switch (currentSection) {
+      case 'analytics':
+        return <AdminAnalytics />;
+
+      case 'users':
+        return (
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription>View and manage all registered users</CardDescription>
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search users..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingUsers ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((userProfile) => (
+                      <TableRow key={userProfile.id}>
+                        <TableCell className="font-medium">{userProfile.email || 'N/A'}</TableCell>
+                        <TableCell>{userProfile.full_name || 'N/A'}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {getUserRole(userProfile.user_id).map(role => (
+                              <Badge 
+                                key={role} 
+                                variant={role === 'admin' ? 'default' : 'secondary'}
+                              >
+                                {role}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(userProfile.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {isUserAdmin(userProfile.user_id) ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => revokeAdminRole(userProfile.user_id)}
+                              disabled={userProfile.user_id === user?.id}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <ShieldMinus className="h-4 w-4 mr-1" />
+                              Revoke Admin
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => grantAdminRole(userProfile.user_id)}
+                              className="text-primary hover:text-primary"
+                            >
+                              <ShieldPlus className="h-4 w-4 mr-1" />
+                              Grant Admin
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredUsers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          No users found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case 'threads':
+        return (
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle>Thread Management</CardTitle>
+              <CardDescription>View and manage all generated threads</CardDescription>
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search threads..."
+                  value={threadSearch}
+                  onChange={(e) => setThreadSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingThreads ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Topic</TableHead>
+                      <TableHead>Platform</TableHead>
+                      <TableHead>Favorite</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredThreads.map((thread) => (
+                      <TableRow key={thread.id}>
+                        <TableCell className="font-medium max-w-[200px] truncate">
+                          {thread.topic}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{thread.platform}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {thread.is_favorite ? (
+                            <Badge variant="default">Yes</Badge>
+                          ) : (
+                            <Badge variant="secondary">No</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(thread.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteThread(thread.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredThreads.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          No threads found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case 'images':
+        return <AdminImageModeration />;
+
+      case 'categories':
+        return <AdminCategoryManager />;
+
+      case 'templates':
+        return <AdminTemplateManager />;
+
+      case 'affiliates':
+        return <AdminAffiliateManager />;
+
+      case 'subscriptions':
+        return <AdminSubscriptionManager />;
+
+      case 'settings':
+        return (
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle>App Settings</CardTitle>
+              <CardDescription>Configure application settings</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Subscription</h3>
+                <div className="p-4 rounded-lg bg-secondary/30 space-y-2">
+                  <p className="text-sm"><strong>Product:</strong> ThreadPosts Pro</p>
+                  <p className="text-sm"><strong>Price:</strong> $5/month</p>
+                  <p className="text-sm"><strong>Price ID:</strong> price_1SczUKDfNHMKrGiAGJyzqRNW</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Affiliate Program</h3>
+                <div className="p-4 rounded-lg bg-secondary/30 space-y-2">
+                  <p className="text-sm"><strong>Commission Rate:</strong> 50%</p>
+                  <p className="text-sm"><strong>Minimum Payout:</strong> $25</p>
+                  <p className="text-sm"><strong>Attribution:</strong> Lifetime</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">AI Configuration</h3>
+                <div className="p-4 rounded-lg bg-secondary/30 space-y-2">
+                  <p className="text-sm"><strong>Model:</strong> Gemini 2.5 Flash</p>
+                  <p className="text-sm"><strong>Provider:</strong> Lovable AI Gateway</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        return <AdminAnalytics />;
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -244,284 +474,7 @@ export default function Admin() {
           </div>
         </div>
 
-
-        <Tabs defaultValue="analytics" className="space-y-6">
-          <TabsList className="bg-secondary flex-wrap">
-            <TabsTrigger value="analytics" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="h-4 w-4" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="threads" className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Threads
-            </TabsTrigger>
-            <TabsTrigger value="images" className="gap-2">
-              <Image className="h-4 w-4" />
-              Images
-            </TabsTrigger>
-            <TabsTrigger value="categories" className="gap-2">
-              <Tag className="h-4 w-4" />
-              Categories
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Templates
-            </TabsTrigger>
-            <TabsTrigger value="affiliates" className="gap-2">
-              <DollarSign className="h-4 w-4" />
-              Affiliates
-            </TabsTrigger>
-            <TabsTrigger value="subscriptions" className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              Subscriptions
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Analytics Tab */}
-          <TabsContent value="analytics">
-            <AdminAnalytics />
-          </TabsContent>
-
-          {/* Users Tab */}
-          <TabsContent value="users">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>View and manage all registered users</CardDescription>
-                <div className="relative mt-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search users..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loadingUsers ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Joined</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredUsers.map((userProfile) => (
-                        <TableRow key={userProfile.id}>
-                          <TableCell className="font-medium">{userProfile.email || 'N/A'}</TableCell>
-                          <TableCell>{userProfile.full_name || 'N/A'}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              {getUserRole(userProfile.user_id).map(role => (
-                                <Badge 
-                                  key={role} 
-                                  variant={role === 'admin' ? 'default' : 'secondary'}
-                                >
-                                  {role}
-                                </Badge>
-                              ))}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(userProfile.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            {isUserAdmin(userProfile.user_id) ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => revokeAdminRole(userProfile.user_id)}
-                                disabled={userProfile.user_id === user?.id}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                <ShieldMinus className="h-4 w-4 mr-1" />
-                                Revoke Admin
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => grantAdminRole(userProfile.user_id)}
-                                className="text-primary hover:text-primary"
-                              >
-                                <ShieldPlus className="h-4 w-4 mr-1" />
-                                Grant Admin
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {filteredUsers.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                            No users found
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Threads Tab */}
-          <TabsContent value="threads">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle>Thread Management</CardTitle>
-                <CardDescription>View and manage all generated threads</CardDescription>
-                <div className="relative mt-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search threads..."
-                    value={threadSearch}
-                    onChange={(e) => setThreadSearch(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {loadingThreads ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Topic</TableHead>
-                        <TableHead>Platform</TableHead>
-                        <TableHead>Favorite</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredThreads.map((thread) => (
-                        <TableRow key={thread.id}>
-                          <TableCell className="font-medium max-w-[200px] truncate">
-                            {thread.topic}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{thread.platform}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {thread.is_favorite ? (
-                              <Badge variant="default">Yes</Badge>
-                            ) : (
-                              <Badge variant="secondary">No</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(thread.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteThread(thread.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {filteredThreads.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                            No threads found
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Images Tab */}
-          <TabsContent value="images">
-            <AdminImageModeration />
-          </TabsContent>
-
-          {/* Categories Tab */}
-          <TabsContent value="categories">
-            <AdminCategoryManager />
-          </TabsContent>
-
-          {/* Templates Tab */}
-          <TabsContent value="templates">
-            <AdminTemplateManager />
-          </TabsContent>
-
-          {/* Affiliates Tab */}
-          <TabsContent value="affiliates">
-            <AdminAffiliateManager />
-          </TabsContent>
-
-          {/* Subscriptions Tab */}
-          <TabsContent value="subscriptions">
-            <AdminSubscriptionManager />
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="settings">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle>App Settings</CardTitle>
-                <CardDescription>Configure application settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Subscription</h3>
-                  <div className="p-4 rounded-lg bg-secondary/30 space-y-2">
-                    <p className="text-sm"><strong>Product:</strong> ThreadPosts Pro</p>
-                    <p className="text-sm"><strong>Price:</strong> $5/month</p>
-                    <p className="text-sm"><strong>Price ID:</strong> price_1SczUKDfNHMKrGiAGJyzqRNW</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Affiliate Program</h3>
-                  <div className="p-4 rounded-lg bg-secondary/30 space-y-2">
-                    <p className="text-sm"><strong>Commission Rate:</strong> 50%</p>
-                    <p className="text-sm"><strong>Minimum Payout:</strong> $25</p>
-                    <p className="text-sm"><strong>Attribution:</strong> Lifetime</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">AI Configuration</h3>
-                  <div className="p-4 rounded-lg bg-secondary/30 space-y-2">
-                    <p className="text-sm"><strong>Model:</strong> Gemini 2.5 Flash</p>
-                    <p className="text-sm"><strong>Provider:</strong> Lovable AI Gateway</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {renderContent()}
       </div>
     </DashboardLayout>
   );
