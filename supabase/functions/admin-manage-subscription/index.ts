@@ -170,6 +170,66 @@ serve(async (req) => {
       });
     }
 
+    if (action === "getPayments" && subscriptionId) {
+      // Get recent payments for a subscription to allow refunds
+      logStep("Getting payments for subscription", { subscriptionId });
+      
+      // Get the subscription to find the customer
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+      
+      // Get recent payment intents for this customer
+      const paymentIntents = await stripe.paymentIntents.list({
+        customer: customerId,
+        limit: 10,
+      });
+
+      const payments = paymentIntents.data
+        .filter((pi: Stripe.PaymentIntent) => pi.status === 'succeeded')
+        .map((pi: Stripe.PaymentIntent) => ({
+          id: pi.id,
+          amount: pi.amount,
+          currency: pi.currency,
+          created: new Date(pi.created * 1000).toISOString(),
+          refunded: pi.amount_received !== pi.amount || (pi.charges?.data?.[0]?.refunded ?? false),
+        }));
+
+      logStep("Payments fetched", { count: payments.length });
+      return new Response(JSON.stringify({ payments }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    if (action === "refund") {
+      const { paymentIntentId, amount } = await req.json().catch(() => ({}));
+      if (!paymentIntentId) throw new Error("Payment intent ID is required for refund");
+      
+      logStep("Processing refund", { paymentIntentId, amount });
+      
+      const refundParams: Stripe.RefundCreateParams = {
+        payment_intent: paymentIntentId,
+        reason: 'requested_by_customer',
+      };
+      
+      // If amount is provided, do a partial refund; otherwise full refund
+      if (amount && amount > 0) {
+        refundParams.amount = amount;
+      }
+      
+      const refund = await stripe.refunds.create(refundParams);
+      
+      logStep("Refund processed", { refundId: refund.id, amount: refund.amount, status: refund.status });
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Refund of $${(refund.amount / 100).toFixed(2)} has been processed`,
+        refundId: refund.id,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     throw new Error("Invalid action or missing parameters");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
