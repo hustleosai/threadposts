@@ -12,6 +12,9 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CREATE-CHECKOUT] ${step}${detailsStr}`);
 };
 
+const SUBSCRIPTION_PRICE = 5; // $5/month
+const COMMISSION_RATE = 0.50; // 50% commission
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,7 +22,8 @@ serve(async (req) => {
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
   );
 
   try {
@@ -32,6 +36,16 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Parse request body for affiliate_id
+    let affiliateId = null;
+    try {
+      const body = await req.json();
+      affiliateId = body.affiliate_id;
+    } catch {
+      // No body or no affiliate_id, that's fine
+    }
+    logStep("Affiliate ID from request", { affiliateId });
+
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
     });
@@ -41,6 +55,16 @@ serve(async (req) => {
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
       logStep("Found existing customer", { customerId });
+    }
+
+    // Build metadata
+    const metadata: Record<string, string> = {
+      user_id: user.id,
+    };
+    
+    if (affiliateId) {
+      metadata.affiliate_id = affiliateId;
+      metadata.commission_amount = String(SUBSCRIPTION_PRICE * COMMISSION_RATE);
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -55,9 +79,60 @@ serve(async (req) => {
       mode: "subscription",
       success_url: `${req.headers.get("origin")}/dashboard?checkout=success`,
       cancel_url: `${req.headers.get("origin")}/dashboard?checkout=canceled`,
+      metadata,
+      subscription_data: {
+        metadata,
+      },
     });
 
-    logStep("Checkout session created", { sessionId: session.id });
+    logStep("Checkout session created", { sessionId: session.id, metadata });
+
+    // If there's an affiliate, record the conversion and add commission
+    if (affiliateId) {
+      // Record conversion
+      const { error: conversionError } = await supabaseClient
+        .from('referral_conversions')
+        .insert({
+          affiliate_id: affiliateId,
+          referred_user_id: user.id,
+        });
+
+      if (conversionError) {
+        logStep("Error recording conversion", { error: conversionError });
+      } else {
+        logStep("Conversion recorded");
+      }
+
+      // Add commission to pending balance
+      const commissionAmount = SUBSCRIPTION_PRICE * COMMISSION_RATE;
+      
+      // Get current affiliate data
+      const { data: affiliate } = await supabaseClient
+        .from('affiliates')
+        .select('pending_balance')
+        .eq('id', affiliateId)
+        .single();
+
+      if (affiliate) {
+        const newBalance = (Number(affiliate.pending_balance) || 0) + commissionAmount;
+        
+        await supabaseClient
+          .from('affiliates')
+          .update({ pending_balance: newBalance })
+          .eq('id', affiliateId);
+
+        // Record earning
+        await supabaseClient
+          .from('affiliate_earnings')
+          .insert({
+            affiliate_id: affiliateId,
+            amount: commissionAmount,
+            stripe_payment_id: session.id,
+          });
+
+        logStep("Commission added", { affiliateId, commissionAmount, newBalance });
+      }
+    }
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

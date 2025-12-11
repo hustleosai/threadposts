@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,6 +45,7 @@ const quickTopics = [
 
 export default function Dashboard() {
   const { user, session, subscribed, checkSubscription, checkingSubscription } = useAuth();
+  const { getAffiliateId, clearAffiliateId } = useAffiliateTracking();
   const [searchParams] = useSearchParams();
   const [topic, setTopic] = useState('');
   const [platform, setPlatform] = useState('twitter');
@@ -86,18 +88,22 @@ export default function Dashboard() {
     if (checkout === 'success') {
       toast.success('Subscription activated! Welcome to ThreadPosts Pro!');
       checkSubscription();
+      // Clear affiliate attribution after successful checkout
+      clearAffiliateId();
     } else if (checkout === 'canceled') {
       toast.info('Checkout canceled');
     }
-  }, [searchParams, checkSubscription]);
+  }, [searchParams, checkSubscription, clearAffiliateId]);
 
   const handleSubscribe = async () => {
     setCheckoutLoading(true);
     try {
+      const affiliateId = getAffiliateId();
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
+        body: affiliateId ? { affiliate_id: affiliateId } : undefined,
       });
 
       if (error) throw error;

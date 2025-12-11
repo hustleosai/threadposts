@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { 
   Sparkles, 
   Zap, 
@@ -83,7 +84,8 @@ const faqs = [
 
 export default function Index() {
   const { user } = useAuth();
-
+  // Track affiliate referrals when users arrive via ?ref= links
+  useAffiliateTracking();
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
