@@ -11,6 +11,7 @@ import Templates from "./pages/Templates";
 import Images from "./pages/Images";
 import History from "./pages/History";
 import Affiliate from "./pages/Affiliate";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -49,6 +50,11 @@ const App = () => (
             <Route path="/affiliate" element={
               <ProtectedRoute>
                 <Affiliate />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <Admin />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
