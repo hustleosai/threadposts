@@ -4,7 +4,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
-import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star } from 'lucide-react';
+import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash } from 'lucide-react';
+import { useState } from 'react';
+
 const features = [{
   icon: Zap,
   title: 'AI Thread Generator',
@@ -30,6 +32,7 @@ const features = [{
   title: 'Smart Formatting',
   description: 'Auto-formats content for each platform with optimal character counts.'
 }];
+
 const platforms = [{
   icon: Twitter,
   name: 'Twitter/X'
@@ -43,6 +46,51 @@ const platforms = [{
   icon: Sparkles,
   name: 'Threads'
 }];
+
+const exampleThreads = [
+  {
+    platform: 'twitter',
+    platformName: 'Twitter/X',
+    icon: Twitter,
+    topic: 'Building in Public',
+    posts: [
+      "I've built 3 startups in the last 5 years.\n\nHere's the uncomfortable truth about entrepreneurship that nobody talks about:",
+      "1/ Your first idea will probably fail.\n\nAnd that's okay.\n\nThe goal isn't to get it right the first time. The goal is to learn fast enough to pivot before you run out of runway.",
+      "2/ Overnight success is a myth.\n\nMy 'overnight success' took 847 days of:\n• Building in public\n• Learning from failures\n• Showing up when nobody cared",
+      "3/ Your network is your net worth.\n\nThe people who supported me at 100 followers are the same ones helping me at 100K.\n\nNurture relationships before you need them.",
+      "4/ Revenue > Followers\n\nI'd rather have 1,000 customers than 100,000 followers.\n\nVanity metrics don't pay bills.",
+      "If this resonated, drop a 🔥 and follow for more startup insights.\n\nI share my journey building in public every single day."
+    ]
+  },
+  {
+    platform: 'linkedin',
+    platformName: 'LinkedIn',
+    icon: Linkedin,
+    topic: 'Career Advice',
+    posts: [
+      "I interviewed 200+ candidates last year.\n\nHere are 5 mistakes that instantly disqualified them:\n\n(And how you can avoid them)",
+      "1. They couldn't explain their impact.\n\n❌ \"I was responsible for marketing.\"\n✅ \"I increased qualified leads by 47% through a targeted content strategy.\"\n\nNumbers tell stories. Use them.",
+      "2. They bad-mouthed previous employers.\n\nNo matter how toxic your last job was, speaking negatively about it raises red flags.\n\nFocus on what you learned and how you grew.",
+      "3. They didn't research the company.\n\n\"What does your company do?\" is an instant no.\n\nSpend 30 minutes understanding:\n• The mission\n• Recent news\n• Key challenges",
+      "4. They asked about salary in the first interview.\n\nTiming matters. Show your value first, then negotiate.\n\nThe best candidates focus on fit before compensation.",
+      "5. They didn't ask thoughtful questions.\n\n\"Do you have any questions?\" isn't a formality.\n\nIt's your chance to interview them.\n\n---\n\nAgree? What would you add?\n\n♻️ Repost to help your network\n🔔 Follow me for daily career tips"
+    ]
+  },
+  {
+    platform: 'threads',
+    platformName: 'Threads',
+    icon: Hash,
+    topic: 'Productivity Tips',
+    posts: [
+      "I used to work 12-hour days and get nothing done.\n\nThen I discovered these 4 time hacks that changed everything 🧵",
+      "1. The 2-Minute Rule\n\nIf it takes less than 2 minutes, do it NOW.\n\nYou'd be surprised how much this clears your mental load.",
+      "2. Time Blocking\n\nI schedule EVERYTHING:\n• Deep work: 9-12\n• Meetings: 2-4\n• Admin: 4-5\n\nNo decisions = more energy for actual work.",
+      "3. The Sunday Reset\n\nEvery Sunday I spend 30 min planning my week.\n\nThis one habit 10x'd my productivity.",
+      "4. Say No More\n\nEvery yes is a no to something else.\n\nI started protecting my time like it's my most valuable asset.\n\nBecause it is.\n\nSave this for later 🔖"
+    ]
+  }
+];
+
 const faqs = [{
   question: 'How does the AI thread generator work?',
   answer: 'Our AI analyzes thousands of viral threads to understand what makes content go viral. Simply enter your topic, select your platform, and get a fully formatted thread in seconds.'
@@ -63,6 +111,7 @@ export default function Index() {
   const {
     user
   } = useAuth();
+  const [selectedExample, setSelectedExample] = useState('twitter');
   // Track affiliate referrals when users arrive via ?ref= links
   useAffiliateTracking();
   return <div className="min-h-screen bg-background">
@@ -124,6 +173,9 @@ export default function Index() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
+            <Button variant="outline" size="lg" className="text-lg px-8 h-14" onClick={() => document.getElementById('examples')?.scrollIntoView({ behavior: 'smooth' })}>
+              View Examples
+            </Button>
           </div>
 
           {/* Platform Icons */}
@@ -161,6 +213,79 @@ export default function Index() {
                 </CardContent>
               </Card>)}
           </div>
+        </div>
+      </section>
+
+      {/* Examples Section */}
+      <section id="examples" className="py-20 px-4 bg-secondary/20">
+        <div className="container mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-display font-bold mb-4">
+              See It In Action
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Real examples of threads generated by our AI. Click any platform to see the magic.
+            </p>
+          </div>
+
+          {/* Platform Tabs */}
+          <div className="flex flex-wrap justify-center gap-4 mb-12">
+            {exampleThreads.map((thread) => (
+              <Button
+                key={thread.platform}
+                variant={selectedExample === thread.platform ? "default" : "outline"}
+                onClick={() => setSelectedExample(thread.platform)}
+                className={selectedExample === thread.platform ? "gradient-primary" : ""}
+              >
+                <thread.icon className="h-4 w-4 mr-2" />
+                {thread.platformName}
+              </Button>
+            ))}
+          </div>
+
+          {/* Thread Display */}
+          {exampleThreads.filter(t => t.platform === selectedExample).map((thread) => (
+            <div key={thread.platform} className="max-w-2xl mx-auto">
+              <div className="mb-6 text-center">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-sm">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Topic: "{thread.topic}"
+                </span>
+              </div>
+              
+              <div className="space-y-4">
+                {thread.posts.map((post, index) => (
+                  <Card key={index} className="bg-card border-border animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center">
+                            <thread.icon className="h-5 w-5 text-primary-foreground" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold">ThreadPosts AI</span>
+                            <span className="text-xs text-muted-foreground">• {index + 1}/{thread.posts.length}</span>
+                          </div>
+                          <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">{post}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="text-center mt-8">
+                <Button asChild size="lg" className="gradient-primary">
+                  <Link to="/auth">
+                    Create Your Own Thread
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
