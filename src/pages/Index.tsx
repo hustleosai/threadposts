@@ -303,6 +303,87 @@ export default function Index() {
         </div>
       </section>
 
+      {/* Testimonials Section */}
+      <section className="py-20 px-4">
+        <div className="container mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-display font-bold mb-4">
+              Loved by Creators Worldwide
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Join thousands of content creators who've transformed their social media presence.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                name: "Sarah Chen",
+                role: "Marketing Director",
+                avatar: "SC",
+                content: "ThreadPosts cut my content creation time by 80%. I used to spend hours crafting threads, now I generate high-quality content in minutes. My engagement has tripled!",
+                rating: 5
+              },
+              {
+                name: "Marcus Johnson",
+                role: "Startup Founder",
+                avatar: "MJ",
+                content: "As someone building in public, I need to post consistently. ThreadPosts helps me stay active on Twitter and LinkedIn without burning out. Game changer.",
+                rating: 5
+              },
+              {
+                name: "Emily Rodriguez",
+                role: "Career Coach",
+                avatar: "ER",
+                content: "My LinkedIn posts used to get 50 views. After using ThreadPosts templates and AI, I'm consistently hitting 10K+ views. The ROI is incredible for just $5/month.",
+                rating: 5
+              },
+              {
+                name: "David Park",
+                role: "Content Creator",
+                avatar: "DP",
+                content: "I was skeptical about AI-generated content, but ThreadPosts genuinely understands what makes threads go viral. The output feels authentic and matches my voice.",
+                rating: 5
+              },
+              {
+                name: "Jessica Williams",
+                role: "SaaS Founder",
+                avatar: "JW",
+                content: "We use ThreadPosts for our company's social presence. The multi-platform support is amazing—one topic, four perfectly formatted threads. Our team loves it.",
+                rating: 5
+              },
+              {
+                name: "Alex Thompson",
+                role: "Freelance Writer",
+                avatar: "AT",
+                content: "The template library alone is worth the subscription. I've learned so much about thread structure just by studying the examples. Plus the AI adds that extra spark.",
+                rating: 5
+              }
+            ].map((testimonial, index) => (
+              <Card key={index} className="bg-card/50 border-border hover:border-primary/50 transition-all duration-300">
+                <CardContent className="p-6">
+                  <div className="flex gap-1 mb-4">
+                    {Array.from({ length: testimonial.rating }).map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-primary text-primary" />
+                    ))}
+                  </div>
+                  <p className="text-foreground mb-6 leading-relaxed">"{testimonial.content}"</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-sm font-semibold text-primary-foreground">
+                      {testimonial.avatar}
+                    </div>
+                    <div>
+                      <p className="font-semibold">{testimonial.name}</p>
+                      <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Section */}
       <section className="py-20 px-4 bg-secondary/20">
         <div className="container mx-auto max-w-4xl">
