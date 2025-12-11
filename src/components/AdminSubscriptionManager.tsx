@@ -13,7 +13,8 @@ import {
   RefreshCw,
   XCircle,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  DollarSign
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -25,6 +26,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Subscription {
   id: string;
@@ -35,6 +44,14 @@ interface Subscription {
   currentPeriodStart: string;
   cancelAtPeriodEnd: boolean;
   created: string;
+}
+
+interface Payment {
+  id: string;
+  amount: number;
+  currency: string;
+  created: string;
+  refunded: boolean;
 }
 
 export default function AdminSubscriptionManager() {
@@ -48,6 +65,13 @@ export default function AdminSubscriptionManager() {
     subscription: null,
     immediate: false,
   });
+  const [refundDialog, setRefundDialog] = useState<{ open: boolean; subscription: Subscription | null; payments: Payment[]; loading: boolean }>({
+    open: false,
+    subscription: null,
+    payments: [],
+    loading: false,
+  });
+  const [refundLoading, setRefundLoading] = useState<string | null>(null);
 
   const fetchSubscriptions = async () => {
     setLoading(true);
@@ -122,6 +146,53 @@ export default function AdminSubscriptionManager() {
       toast.error('Failed to reactivate subscription');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const openRefundDialog = async (subscription: Subscription) => {
+    setRefundDialog({ open: true, subscription, payments: [], loading: true });
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-manage-subscription', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: { action: 'getPayments', subscriptionId: subscription.id },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      setRefundDialog(prev => ({ ...prev, payments: data.payments || [], loading: false }));
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      toast.error('Failed to load payments');
+      setRefundDialog(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleRefund = async (paymentIntentId: string) => {
+    setRefundLoading(paymentIntentId);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-manage-subscription', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: { action: 'refund', paymentIntentId },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      toast.success(data.message);
+      // Refresh payments list
+      if (refundDialog.subscription) {
+        openRefundDialog(refundDialog.subscription);
+      }
+    } catch (error) {
+      console.error('Error processing refund:', error);
+      toast.error('Failed to process refund');
+    } finally {
+      setRefundLoading(null);
     }
   };
 
@@ -225,6 +296,16 @@ export default function AdminSubscriptionManager() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => openRefundDialog(sub)}
+                            disabled={actionLoading === sub.id}
+                            className="text-blue-500 hover:text-blue-600"
+                          >
+                            <DollarSign className="h-4 w-4 mr-1" />
+                            Refund
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setCancelDialog({ open: true, subscription: sub, immediate: true })}
                             disabled={actionLoading === sub.id}
                             className="text-destructive hover:text-destructive"
@@ -235,22 +316,34 @@ export default function AdminSubscriptionManager() {
                         </>
                       )}
                       {sub.cancelAtPeriodEnd && sub.status === 'active' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleReactivateSubscription(sub.id)}
-                          disabled={actionLoading === sub.id}
-                          className="text-green-500 hover:text-green-600"
-                        >
-                          {actionLoading === sub.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <RotateCcw className="h-4 w-4 mr-1" />
-                              Reactivate
-                            </>
-                          )}
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openRefundDialog(sub)}
+                            disabled={actionLoading === sub.id}
+                            className="text-blue-500 hover:text-blue-600"
+                          >
+                            <DollarSign className="h-4 w-4 mr-1" />
+                            Refund
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReactivateSubscription(sub.id)}
+                            disabled={actionLoading === sub.id}
+                            className="text-green-500 hover:text-green-600"
+                          >
+                            {actionLoading === sub.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <RotateCcw className="h-4 w-4 mr-1" />
+                                Reactivate
+                              </>
+                            )}
+                          </Button>
+                        </>
                       )}
                     </div>
                   </TableCell>
@@ -300,6 +393,62 @@ export default function AdminSubscriptionManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={refundDialog.open} onOpenChange={(open) => setRefundDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Issue Refund</DialogTitle>
+            <DialogDescription>
+              Select a payment to refund for {refundDialog.subscription?.customerEmail}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {refundDialog.loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : refundDialog.payments.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">No payments found for this subscription</p>
+            ) : (
+              <div className="space-y-3">
+                {refundDialog.payments.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
+                    <div>
+                      <p className="font-medium">
+                        ${(payment.amount / 100).toFixed(2)} {payment.currency.toUpperCase()}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(payment.created).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {payment.refunded ? (
+                      <Badge variant="outline" className="text-muted-foreground">Refunded</Badge>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleRefund(payment.id)}
+                        disabled={refundLoading === payment.id}
+                      >
+                        {refundLoading === payment.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          'Refund'
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRefundDialog(prev => ({ ...prev, open: false }))}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
