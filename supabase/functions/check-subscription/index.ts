@@ -12,6 +12,31 @@ const logStep = (step: string, details?: any) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+// Retry helper for transient network errors
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 100
+): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isRetryable = error instanceof Error && 
+        (error.message.includes('connection reset') || 
+         error.message.includes('connection error') ||
+         error.message.includes('SendRequest'));
+      
+      if (i === retries - 1 || !isRetryable) {
+        throw error;
+      }
+      logStep(`Retry attempt ${i + 1}/${retries} after error`, { error: error.message });
+      await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -33,7 +58,11 @@ serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header provided");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    
+    // Use retry logic for auth call to handle transient network errors
+    const { data: userData, error: userError } = await withRetry(() => 
+      supabaseClient.auth.getUser(token)
+    );
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
