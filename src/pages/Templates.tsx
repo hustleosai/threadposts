@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Layout, Star, Copy, Twitter, Linkedin, MessageCircle, Sparkles } from 'lucide-react';
+import { Layout, Star, Copy, Twitter, Linkedin, MessageCircle, Sparkles, Lock, Crown } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Template {
   id: string;
@@ -95,6 +96,7 @@ const sampleTemplates: Template[] = [
 export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>(sampleTemplates);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { subscribed, session } = useAuth();
 
   useEffect(() => {
     fetchTemplates();
@@ -116,11 +118,116 @@ export default function Templates() {
     toast.success('Template copied to clipboard!');
   };
 
+  const handleUpgrade = async () => {
+    if (!session?.access_token) {
+      toast.error('Please sign in to upgrade');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error);
+      toast.error('Failed to start checkout. Please try again.');
+    }
+  };
+
   const filteredTemplates = selectedCategory 
     ? templates.filter(t => t.category === selectedCategory)
     : templates;
 
   const categories = Array.from(new Set(templates.map(t => t.category)));
+
+  // Show paywall for non-subscribed users
+  if (!subscribed) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-8">
+          <div>
+            <h1 className="text-3xl font-display font-bold mb-2">Template Library</h1>
+            <p className="text-muted-foreground">Proven thread templates to maximize engagement</p>
+          </div>
+
+          {/* Blurred Preview with Paywall */}
+          <div className="relative">
+            {/* Blurred templates grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 blur-sm pointer-events-none select-none">
+              {sampleTemplates.slice(0, 6).map((template) => (
+                <Card key={template.id} className="bg-card border-border">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg">{template.title}</CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">{template.description}</p>
+                      </div>
+                      <div className="flex items-center gap-1 text-yellow-400">
+                        <Star className="h-4 w-4 fill-current" />
+                        <span className="text-sm font-medium">{template.engagement_score}</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={categoryColors[template.category] || 'bg-secondary'}>
+                        {template.category}
+                      </Badge>
+                    </div>
+                    <div className="bg-secondary/30 p-3 rounded-lg text-xs text-muted-foreground h-20" />
+                    <Button variant="outline" size="sm" className="w-full" disabled>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Template
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Paywall Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+              <Card className="max-w-md mx-4 border-primary/50 bg-card/95">
+                <CardContent className="pt-6 text-center space-y-4">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Crown className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-display font-bold">Unlock Template Library</h3>
+                  <p className="text-muted-foreground">
+                    Get access to proven thread templates that maximize engagement across all platforms.
+                  </p>
+                  <ul className="text-sm text-left space-y-2 py-2">
+                    <li className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-primary" />
+                      <span>High-converting templates</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-primary" />
+                      <span>Platform-optimized formats</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-primary" />
+                      <span>Engagement score ratings</span>
+                    </li>
+                  </ul>
+                  <Button onClick={handleUpgrade} className="w-full" size="lg">
+                    <Lock className="h-4 w-4 mr-2" />
+                    Upgrade to Pro - $5/month
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
