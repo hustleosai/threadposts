@@ -4,90 +4,68 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
-import { 
-  Sparkles, 
-  Zap, 
-  TrendingUp, 
-  Image, 
-  Layout, 
-  Clock,
-  Check,
-  Twitter,
-  Linkedin,
-  MessageCircle,
-  ArrowRight,
-  Star
-} from 'lucide-react';
-
-const features = [
-  {
-    icon: Zap,
-    title: 'AI Thread Generator',
-    description: 'Generate viral threads in seconds with our advanced AI trained on top-performing content.'
-  },
-  {
-    icon: Layout,
-    title: 'Template Library',
-    description: '15+ proven thread templates with engagement scores to maximize your reach.'
-  },
-  {
-    icon: Image,
-    title: 'Viral Image Library',
-    description: '100+ curated images, memes, and quotes that drive engagement.'
-  },
-  {
-    icon: TrendingUp,
-    title: 'Multi-Platform',
-    description: 'Optimized for Twitter/X, LinkedIn, Facebook, and Instagram Threads.'
-  },
-  {
-    icon: Clock,
-    title: 'Thread History',
-    description: 'Save, favorite, and reuse your best-performing threads.'
-  },
-  {
-    icon: Sparkles,
-    title: 'Smart Formatting',
-    description: 'Auto-formats content for each platform with optimal character counts.'
-  }
-];
-
-const platforms = [
-  { icon: Twitter, name: 'Twitter/X' },
-  { icon: Linkedin, name: 'LinkedIn' },
-  { icon: MessageCircle, name: 'Facebook' },
-  { icon: Sparkles, name: 'Threads' }
-];
-
-const faqs = [
-  {
-    question: 'How does the AI thread generator work?',
-    answer: 'Our AI analyzes thousands of viral threads to understand what makes content go viral. Simply enter your topic, select your platform, and get a fully formatted thread in seconds.'
-  },
-  {
-    question: 'Can I edit the generated threads?',
-    answer: 'Absolutely! All generated content is fully editable. You can tweak, add, or remove any part before posting.'
-  },
-  {
-    question: 'What platforms are supported?',
-    answer: 'We support Twitter/X, LinkedIn, Facebook, and Instagram Threads. Each platform has optimized formatting and character limits.'
-  },
-  {
-    question: 'Is there a free trial?',
-    answer: 'Yes! You can try ThreadPosts free with limited generations. Upgrade to premium for unlimited access.'
-  },
-  {
-    question: 'Can I cancel anytime?',
-    answer: 'Yes, you can cancel your subscription at any time. No questions asked, no hidden fees.'
-  }
-];
-
+import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star } from 'lucide-react';
+const features = [{
+  icon: Zap,
+  title: 'AI Thread Generator',
+  description: 'Generate viral threads in seconds with our advanced AI trained on top-performing content.'
+}, {
+  icon: Layout,
+  title: 'Template Library',
+  description: '15+ proven thread templates with engagement scores to maximize your reach.'
+}, {
+  icon: Image,
+  title: 'Viral Image Library',
+  description: '100+ curated images, memes, and quotes that drive engagement.'
+}, {
+  icon: TrendingUp,
+  title: 'Multi-Platform',
+  description: 'Optimized for Twitter/X, LinkedIn, Facebook, and Instagram Threads.'
+}, {
+  icon: Clock,
+  title: 'Thread History',
+  description: 'Save, favorite, and reuse your best-performing threads.'
+}, {
+  icon: Sparkles,
+  title: 'Smart Formatting',
+  description: 'Auto-formats content for each platform with optimal character counts.'
+}];
+const platforms = [{
+  icon: Twitter,
+  name: 'Twitter/X'
+}, {
+  icon: Linkedin,
+  name: 'LinkedIn'
+}, {
+  icon: MessageCircle,
+  name: 'Facebook'
+}, {
+  icon: Sparkles,
+  name: 'Threads'
+}];
+const faqs = [{
+  question: 'How does the AI thread generator work?',
+  answer: 'Our AI analyzes thousands of viral threads to understand what makes content go viral. Simply enter your topic, select your platform, and get a fully formatted thread in seconds.'
+}, {
+  question: 'Can I edit the generated threads?',
+  answer: 'Absolutely! All generated content is fully editable. You can tweak, add, or remove any part before posting.'
+}, {
+  question: 'What platforms are supported?',
+  answer: 'We support Twitter/X, LinkedIn, Facebook, and Instagram Threads. Each platform has optimized formatting and character limits.'
+}, {
+  question: 'Is there a free trial?',
+  answer: 'Yes! You can try ThreadPosts free with limited generations. Upgrade to premium for unlimited access.'
+}, {
+  question: 'Can I cancel anytime?',
+  answer: 'Yes, you can cancel your subscription at any time. No questions asked, no hidden fees.'
+}];
 export default function Index() {
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   // Track affiliate referrals when users arrive via ?ref= links
   useAffiliateTracking();
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 glass">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -96,20 +74,16 @@ export default function Index() {
             <span className="text-xl font-display font-bold">ThreadPosts</span>
           </Link>
           <div className="flex items-center gap-4">
-            {user ? (
-              <Button asChild className="gradient-primary">
+            {user ? <Button asChild className="gradient-primary">
                 <Link to="/dashboard">Dashboard</Link>
-              </Button>
-            ) : (
-              <>
+              </Button> : <>
                 <Button variant="ghost" asChild>
                   <Link to="/auth">Sign In</Link>
                 </Button>
                 <Button asChild className="gradient-primary">
                   <Link to="/auth">Get Started</Link>
                 </Button>
-              </>
-            )}
+              </>}
           </div>
         </div>
       </nav>
@@ -118,7 +92,9 @@ export default function Index() {
       <section className="relative pt-32 pb-20 px-4 gradient-hero overflow-hidden">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-glow" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-glow" style={{
+          animationDelay: '1s'
+        }} />
         </div>
         
         <div className="container mx-auto text-center relative z-10">
@@ -132,12 +108,16 @@ export default function Index() {
             <br />in Seconds
           </h1>
           
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in" style={{
+          animationDelay: '0.1s'
+        }}>
             The AI-powered thread generator that helps you create engaging content for 
             Twitter/X, LinkedIn, Facebook, and Threads.
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 animate-fade-in" style={{
+          animationDelay: '0.2s'
+        }}>
             <Button asChild size="lg" className="gradient-primary glow-primary text-lg px-8 h-14">
               <Link to="/auth">
                 Start Creating Free
@@ -150,13 +130,13 @@ export default function Index() {
           </div>
 
           {/* Platform Icons */}
-          <div className="flex items-center justify-center gap-8 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            {platforms.map((platform) => (
-              <div key={platform.name} className="flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <div className="flex items-center justify-center gap-8 animate-fade-in" style={{
+          animationDelay: '0.3s'
+        }}>
+            {platforms.map(platform => <div key={platform.name} className="flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
                 <platform.icon className="h-8 w-8" />
                 <span className="text-sm">{platform.name}</span>
-              </div>
-            ))}
+              </div>)}
           </div>
         </div>
       </section>
@@ -174,8 +154,7 @@ export default function Index() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature) => (
-              <Card key={feature.title} className="bg-card/50 border-border hover:border-primary/50 transition-all duration-300 hover:glow-accent group">
+            {features.map(feature => <Card key={feature.title} className="bg-card/50 border-border hover:border-primary/50 transition-all duration-300 hover:glow-accent group">
                 <CardContent className="p-6">
                   <div className="w-12 h-12 rounded-lg gradient-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                     <feature.icon className="h-6 w-6 text-primary-foreground" />
@@ -183,8 +162,7 @@ export default function Index() {
                   <h3 className="text-xl font-display font-semibold mb-2">{feature.title}</h3>
                   <p className="text-muted-foreground">{feature.description}</p>
                 </CardContent>
-              </Card>
-            ))}
+              </Card>)}
           </div>
         </div>
       </section>
@@ -214,19 +192,10 @@ export default function Index() {
                     <span className="text-muted-foreground">/month</span>
                   </div>
                   <ul className="space-y-3">
-                    {[
-                      'Unlimited AI thread generation',
-                      'All 15+ templates',
-                      '100+ viral images',
-                      'Thread history & favorites',
-                      'All platforms supported',
-                      'Priority support'
-                    ].map((feature) => (
-                      <li key={feature} className="flex items-center gap-2">
+                    {['Unlimited AI thread generation', 'All 15+ templates', '100+ viral images', 'Thread history & favorites', 'All platforms supported', 'Priority support'].map(feature => <li key={feature} className="flex items-center gap-2">
                         <Check className="h-5 w-5 text-primary" />
                         <span>{feature}</span>
-                      </li>
-                    ))}
+                      </li>)}
                   </ul>
                 </div>
                 <div className="flex flex-col gap-4 w-full md:w-auto">
@@ -253,16 +222,14 @@ export default function Index() {
           </div>
 
           <Accordion type="single" collapsible className="space-y-4">
-            {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`item-${index}`} className="bg-card border border-border rounded-lg px-6">
+            {faqs.map((faq, index) => <AccordionItem key={index} value={`item-${index}`} className="bg-card border border-border rounded-lg px-6">
                 <AccordionTrigger className="text-left font-semibold hover:no-underline">
                   {faq.question}
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
                   {faq.answer}
                 </AccordionContent>
-              </AccordionItem>
-            ))}
+              </AccordionItem>)}
           </Accordion>
         </div>
       </section>
@@ -292,11 +259,8 @@ export default function Index() {
             <Sparkles className="h-6 w-6 text-primary" />
             <span className="font-display font-bold">ThreadPosts</span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            © 2024 ThreadPosts. All rights reserved.
-          </p>
+          <p className="text-sm text-muted-foreground">© 2025 ThreadPosts. All rights reserved.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 }
