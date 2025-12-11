@@ -244,48 +244,6 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Users</p>
-                  <p className="text-2xl font-bold">{users.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <MessageSquare className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Threads</p>
-                  <p className="text-2xl font-bold">{threads.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <Crown className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Admins</p>
-                  <p className="text-2xl font-bold">{userRoles.filter(r => r.role === 'admin').length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         <Tabs defaultValue="analytics" className="space-y-6">
           <TabsList className="bg-secondary flex-wrap">
