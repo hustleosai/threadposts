@@ -205,7 +205,7 @@ serve(async (req) => {
       const { paymentIntentId, amount, customerEmail } = await req.json().catch(() => ({}));
       if (!paymentIntentId) throw new Error("Payment intent ID is required for refund");
       
-      logStep("Processing refund", { paymentIntentId, amount });
+      logStep("Processing refund", { paymentIntentId, amount, customerEmail });
       
       const refundParams: Stripe.RefundCreateParams = {
         payment_intent: paymentIntentId,
@@ -221,8 +221,81 @@ serve(async (req) => {
       
       logStep("Refund processed", { refundId: refund.id, amount: refund.amount, status: refund.status });
 
-      // Send email notification if customer email is provided
+      // Check if this customer was referred by an affiliate and deduct commission
       if (customerEmail) {
+        try {
+          // Find the referral conversion for this customer
+          const { data: profile } = await supabaseClient
+            .from('profiles')
+            .select('user_id')
+            .eq('email', customerEmail)
+            .maybeSingle();
+          
+          if (profile?.user_id) {
+            // Check if this user was referred
+            const { data: conversion } = await supabaseClient
+              .from('referral_conversions')
+              .select('id, affiliate_id')
+              .eq('referred_user_id', profile.user_id)
+              .maybeSingle();
+            
+            if (conversion) {
+              // Calculate commission deduction (50% of refund amount)
+              const commissionRate = 0.50;
+              const deductionAmount = (refund.amount / 100) * commissionRate;
+              
+              logStep("Deducting affiliate commission", { 
+                affiliateId: conversion.affiliate_id, 
+                deductionAmount,
+                refundAmount: refund.amount / 100
+              });
+              
+              // Get the affiliate's current balance
+              const { data: affiliate } = await supabaseClient
+                .from('affiliates')
+                .select('pending_balance, total_earnings')
+                .eq('id', conversion.affiliate_id)
+                .single();
+              
+              if (affiliate) {
+                // Update affiliate balances
+                const newPendingBalance = Math.max(0, Number(affiliate.pending_balance) - deductionAmount);
+                const newTotalEarnings = Math.max(0, Number(affiliate.total_earnings) - deductionAmount);
+                
+                await supabaseClient
+                  .from('affiliates')
+                  .update({ 
+                    pending_balance: newPendingBalance,
+                    total_earnings: newTotalEarnings
+                  })
+                  .eq('id', conversion.affiliate_id);
+                
+                // Record the deduction
+                await supabaseClient
+                  .from('affiliate_deductions')
+                  .insert({
+                    affiliate_id: conversion.affiliate_id,
+                    amount: deductionAmount,
+                    reason: 'Refund - Commission reversed',
+                    refund_id: refund.id,
+                    customer_email: customerEmail,
+                  });
+                
+                logStep("Commission deducted and recorded", { 
+                  affiliateId: conversion.affiliate_id,
+                  deductionAmount,
+                  newPendingBalance,
+                  newTotalEarnings
+                });
+              }
+            }
+          }
+        } catch (deductionError) {
+          logStep("Failed to process commission deduction", { error: deductionError });
+          // Don't fail the refund if deduction fails
+        }
+        
+        // Send email notification
         try {
           const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
           const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";

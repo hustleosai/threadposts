@@ -21,7 +21,10 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  Wallet
+  Wallet,
+  History,
+  MinusCircle,
+  PlusCircle
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -49,12 +52,28 @@ interface ConnectStatus {
   payouts_enabled: boolean;
 }
 
+interface Earning {
+  id: string;
+  amount: number;
+  created_at: string;
+}
+
+interface Deduction {
+  id: string;
+  amount: number;
+  reason: string;
+  customer_email: string | null;
+  created_at: string;
+}
+
 export default function Affiliate() {
   const { user, session } = useAuth();
   const [searchParams] = useSearchParams();
   const [affiliate, setAffiliate] = useState<AffiliateData | null>(null);
   const [stats, setStats] = useState<AffiliateStats>({ totalClicks: 0, totalConversions: 0, conversionRate: 0 });
   const [connectStatus, setConnectStatus] = useState<ConnectStatus | null>(null);
+  const [earnings, setEarnings] = useState<Earning[]>([]);
+  const [deductions, setDeductions] = useState<Deduction[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectLoading, setConnectLoading] = useState(false);
   const [payoutLoading, setPayoutLoading] = useState(false);
@@ -108,6 +127,26 @@ export default function Affiliate() {
         totalConversions,
         conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0
       });
+
+      // Fetch earnings history
+      const { data: earningsData } = await supabase
+        .from('affiliate_earnings')
+        .select('id, amount, created_at')
+        .eq('affiliate_id', affiliateData.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      setEarnings(earningsData || []);
+
+      // Fetch deductions history
+      const { data: deductionsData } = await supabase
+        .from('affiliate_deductions')
+        .select('id, amount, reason, customer_email, created_at')
+        .eq('affiliate_id', affiliateData.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      setDeductions(deductionsData || []);
 
       // Check connect status if they have a Stripe Connect ID
       if (affiliateData.stripe_connect_id) {
@@ -486,6 +525,68 @@ export default function Affiliate() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Transaction History */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Transaction History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {earnings.length === 0 && deductions.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No transactions yet</p>
+            ) : (
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {/* Combine and sort earnings and deductions */}
+                {[
+                  ...earnings.map(e => ({ ...e, type: 'earning' as const })),
+                  ...deductions.map(d => ({ ...d, type: 'deduction' as const }))
+                ]
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .slice(0, 20)
+                  .map((item) => (
+                    <div 
+                      key={`${item.type}-${item.id}`}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        item.type === 'deduction' 
+                          ? 'bg-destructive/10 border-destructive/30' 
+                          : 'bg-green-500/10 border-green-500/30'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {item.type === 'deduction' ? (
+                          <MinusCircle className="h-5 w-5 text-destructive" />
+                        ) : (
+                          <PlusCircle className="h-5 w-5 text-green-500" />
+                        )}
+                        <div>
+                          <p className="font-medium">
+                            {item.type === 'deduction' 
+                              ? (item as Deduction).reason
+                              : 'Commission earned'
+                            }
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(item.created_at).toLocaleDateString()} at {new Date(item.created_at).toLocaleTimeString()}
+                            {item.type === 'deduction' && (item as Deduction).customer_email && (
+                              <span> • {(item as Deduction).customer_email}</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <p className={`font-bold ${
+                        item.type === 'deduction' ? 'text-destructive' : 'text-green-500'
+                      }`}>
+                        {item.type === 'deduction' ? '-' : '+'}${Number(item.amount).toFixed(2)}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Payout Info */}
         <Card className="bg-card border-border">
