@@ -126,6 +126,13 @@ export type Database = {
             foreignKeyName: "affiliate_earnings_conversion_id_fkey"
             columns: ["conversion_id"]
             isOneToOne: false
+            referencedRelation: "affiliate_conversions_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_earnings_conversion_id_fkey"
+            columns: ["conversion_id"]
+            isOneToOne: false
             referencedRelation: "referral_conversions"
             referencedColumns: ["id"]
           },
@@ -475,7 +482,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      affiliate_conversions_safe: {
+        Row: {
+          affiliate_id: string | null
+          converted_at: string | null
+          id: string | null
+        }
+        Insert: {
+          affiliate_id?: string | null
+          converted_at?: string | null
+          id?: string | null
+        }
+        Update: {
+          affiliate_id?: string | null
+          converted_at?: string | null
+          id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_conversions_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       generate_referral_code: { Args: never; Returns: string }
