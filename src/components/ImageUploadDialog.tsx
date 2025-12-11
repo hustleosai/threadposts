@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useImageCategories } from '@/hooks/useImageCategories';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,10 +16,9 @@ interface ImageUploadDialogProps {
   children?: React.ReactNode;
 }
 
-const CATEGORIES = ['Motivation', 'Tech', 'Business', 'Lifestyle', 'Education', 'Finance', 'Health', 'Other'];
-
 export default function ImageUploadDialog({ onSuccess, children }: ImageUploadDialogProps) {
   const { user } = useAuth();
+  const { categoryNames, loading: categoriesLoading } = useImageCategories();
   const [open, setOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState('');
@@ -157,12 +157,12 @@ export default function ImageUploadDialog({ onSuccess, children }: ImageUploadDi
 
           <div className="space-y-2">
             <Label htmlFor="category">Category *</Label>
-            <Select value={category} onValueChange={setCategory}>
+            <Select value={category} onValueChange={setCategory} disabled={categoriesLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a category" />
+                <SelectValue placeholder={categoriesLoading ? "Loading..." : "Select a category"} />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((cat) => (
+                {categoryNames.map((cat) => (
                   <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                 ))}
               </SelectContent>

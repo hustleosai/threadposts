@@ -22,9 +22,11 @@ import {
   Crown,
   ShieldPlus,
   ShieldMinus,
-  Image
+  Image,
+  Tag
 } from 'lucide-react';
 import AdminImageModeration from '@/components/AdminImageModeration';
+import AdminCategoryManager from '@/components/AdminCategoryManager';
 
 interface UserProfile {
   id: string;
@@ -290,6 +292,10 @@ export default function Admin() {
               <Image className="h-4 w-4" />
               Images
             </TabsTrigger>
+            <TabsTrigger value="categories" className="gap-2">
+              <Tag className="h-4 w-4" />
+              Categories
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
               Settings
@@ -475,6 +481,11 @@ export default function Admin() {
           {/* Images Tab */}
           <TabsContent value="images">
             <AdminImageModeration />
+          </TabsContent>
+
+          {/* Categories Tab */}
+          <TabsContent value="categories">
+            <AdminCategoryManager />
           </TabsContent>
 
           {/* Settings Tab */}
