@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
-import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash, Users, FileText, Globe } from 'lucide-react';
+import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash, Users, FileText, Globe, MousePointerClick, Layers, Wand2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 // Animated counter hook
@@ -298,6 +298,69 @@ export default function Index() {
             {stats.map((stat, index) => (
               <StatCard key={stat.label} stat={stat} index={index} />
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-20 px-4">
+        <div className="container mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-display font-bold mb-4">
+              How It Works
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Create viral threads in 3 simple steps. No expertise required.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Step 1 */}
+            <div className="relative text-center group">
+              <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <MousePointerClick className="h-8 w-8 text-primary" />
+              </div>
+              <div className="absolute top-10 left-[60%] hidden md:block w-[80%] border-t-2 border-dashed border-primary/30" />
+              <span className="inline-block px-3 py-1 rounded-full bg-primary text-primary-foreground text-sm font-bold mb-4">Step 1</span>
+              <h3 className="text-xl font-display font-semibold mb-2">Enter Your Topic</h3>
+              <p className="text-muted-foreground">
+                Type in any topic you want to create a thread about. From business tips to personal stories.
+              </p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative text-center group">
+              <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <Layers className="h-8 w-8 text-primary" />
+              </div>
+              <div className="absolute top-10 left-[60%] hidden md:block w-[80%] border-t-2 border-dashed border-primary/30" />
+              <span className="inline-block px-3 py-1 rounded-full bg-primary text-primary-foreground text-sm font-bold mb-4">Step 2</span>
+              <h3 className="text-xl font-display font-semibold mb-2">Select Platform</h3>
+              <p className="text-muted-foreground">
+                Choose your target platform—Twitter/X, LinkedIn, Facebook, or Threads. We optimize for each.
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative text-center group">
+              <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <Wand2 className="h-8 w-8 text-primary" />
+              </div>
+              <span className="inline-block px-3 py-1 rounded-full bg-primary text-primary-foreground text-sm font-bold mb-4">Step 3</span>
+              <h3 className="text-xl font-display font-semibold mb-2">Get Your Thread</h3>
+              <p className="text-muted-foreground">
+                Our AI generates a perfectly formatted, engaging thread ready to copy and post.
+              </p>
+            </div>
+          </div>
+
+          <div className="text-center mt-12">
+            <Button asChild size="lg" className="gradient-primary glow-primary">
+              <Link to="/auth">
+                Try It Now — It's Free
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
