@@ -4,8 +4,95 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
-import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash } from 'lucide-react';
-import { useState } from 'react';
+import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash, Users, FileText, Globe } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+
+// Animated counter hook
+function useCountUp(end: number, duration: number = 2000, startOnView: boolean = true) {
+  const [count, setCount] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!startOnView) {
+      setHasStarted(true);
+    }
+  }, [startOnView]);
+
+  useEffect(() => {
+    if (!startOnView) return;
+    
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasStarted) {
+          setHasStarted(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasStarted, startOnView]);
+
+  useEffect(() => {
+    if (!hasStarted) return;
+
+    let startTime: number;
+    let animationFrame: number;
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      setCount(Math.floor(easeOutQuart * end));
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [end, duration, hasStarted]);
+
+  return { count, ref };
+}
+
+const stats = [
+  { value: 50000, label: 'Threads Generated', suffix: '+', icon: FileText },
+  { value: 10000, label: 'Happy Creators', suffix: '+', icon: Users },
+  { value: 4, label: 'Platforms Supported', suffix: '', icon: Globe },
+  { value: 98, label: 'Satisfaction Rate', suffix: '%', icon: Star },
+];
+
+// Stat card component with animated counter
+function StatCard({ stat, index }: { stat: typeof stats[0], index: number }) {
+  const { count, ref } = useCountUp(stat.value, 2000);
+  const Icon = stat.icon;
+  
+  return (
+    <div 
+      ref={ref}
+      className="text-center animate-fade-in" 
+      style={{ animationDelay: `${index * 0.1}s` }}
+    >
+      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-4">
+        <Icon className="h-6 w-6 text-primary" />
+      </div>
+      <div className="text-4xl md:text-5xl font-display font-bold text-foreground mb-2">
+        {count.toLocaleString()}{stat.suffix}
+      </div>
+      <div className="text-muted-foreground">{stat.label}</div>
+    </div>
+  );
+}
 
 const features = [{
   icon: Zap,
@@ -200,6 +287,17 @@ export default function Index() {
                 <platform.icon className="h-8 w-8" />
                 <span className="text-sm">{platform.name}</span>
               </div>)}
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="py-16 px-4 border-y border-border bg-card/30">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <StatCard key={stat.label} stat={stat} index={index} />
+            ))}
           </div>
         </div>
       </section>
