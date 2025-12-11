@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Loader2, Trophy, Medal, Award, Crown } from 'lucide-react';
 
 interface LeaderboardEntry {
   rank: number;
   referral_code: string;
+  full_name: string | null;
+  avatar_url: string | null;
   total: number;
   isCurrentUser: boolean;
 }
@@ -16,6 +19,14 @@ interface AffiliateLeaderboardProps {
   currentAffiliateId: string | null;
   currentReferralCode: string | null;
 }
+
+// Generate gravatar URL from email
+const getGravatarUrl = (identifier: string, size: number = 80) => {
+  const hash = Array.from(identifier).reduce((acc, char) => {
+    return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
+  }, 0).toString(16).replace('-', '');
+  return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=identicon`;
+};
 
 export default function AffiliateLeaderboard({ currentAffiliateId, currentReferralCode }: AffiliateLeaderboardProps) {
   const [loading, setLoading] = useState(true);
@@ -52,18 +63,32 @@ export default function AffiliateLeaderboard({ currentAffiliateId, currentReferr
         // For all time, use total_earnings from affiliates table
         const { data, error } = await supabase
           .from('affiliates')
-          .select('id, referral_code, total_earnings')
+          .select('id, referral_code, total_earnings, user_id')
           .order('total_earnings', { ascending: false })
           .limit(10);
 
         if (error) throw error;
 
-        const entries: LeaderboardEntry[] = (data || []).map((a, index) => ({
-          rank: index + 1,
-          referral_code: a.referral_code,
-          total: Number(a.total_earnings),
-          isCurrentUser: a.id === currentAffiliateId,
-        }));
+        // Fetch profile data for each affiliate
+        const userIds = (data || []).map(a => a.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+
+        const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+
+        const entries: LeaderboardEntry[] = (data || []).map((a, index) => {
+          const profile = profileMap.get(a.user_id);
+          return {
+            rank: index + 1,
+            referral_code: a.referral_code,
+            full_name: profile?.full_name || null,
+            avatar_url: profile?.avatar_url || null,
+            total: Number(a.total_earnings),
+            isCurrentUser: a.id === currentAffiliateId,
+          };
+        });
 
         setLeaderboard(entries);
       } else {
@@ -91,24 +116,40 @@ export default function AffiliateLeaderboard({ currentAffiliateId, currentReferr
 
         const { data: affiliatesData } = await supabase
           .from('affiliates')
-          .select('id, referral_code')
+          .select('id, referral_code, user_id')
           .in('id', affiliateIds);
 
-        const affiliateMap = new Map((affiliatesData || []).map(a => [a.id, a.referral_code]));
+        // Fetch profile data
+        const userIds = (affiliatesData || []).map(a => a.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, avatar_url')
+          .in('user_id', userIds);
+
+        const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+        const affiliateMap = new Map((affiliatesData || []).map(a => [a.id, a]));
 
         // Sort and take top 10
         const sorted = Object.entries(aggregated)
-          .map(([id, total]) => ({
-            id,
-            referral_code: affiliateMap.get(id) || 'Unknown',
-            total,
-          }))
+          .map(([id, total]) => {
+            const affiliate = affiliateMap.get(id);
+            const profile = affiliate ? profileMap.get(affiliate.user_id) : null;
+            return {
+              id,
+              referral_code: affiliate?.referral_code || 'Unknown',
+              full_name: profile?.full_name || null,
+              avatar_url: profile?.avatar_url || null,
+              total,
+            };
+          })
           .sort((a, b) => b.total - a.total)
           .slice(0, 10);
 
         const entries: LeaderboardEntry[] = sorted.map((a, index) => ({
           rank: index + 1,
           referral_code: a.referral_code,
+          full_name: a.full_name,
+          avatar_url: a.avatar_url,
           total: a.total,
           isCurrentUser: a.id === currentAffiliateId,
         }));
@@ -140,6 +181,14 @@ export default function AffiliateLeaderboard({ currentAffiliateId, currentReferr
     if (isCurrentUser) return code;
     if (code.length <= 4) return '****';
     return code.substring(0, 2) + '****' + code.substring(code.length - 2);
+  };
+
+  const maskName = (name: string) => {
+    const parts = name.split(' ');
+    return parts.map(part => {
+      if (part.length <= 2) return part[0] + '.';
+      return part[0] + '***';
+    }).join(' ');
   };
 
   const getPeriodLabel = () => {
@@ -196,14 +245,32 @@ export default function AffiliateLeaderboard({ currentAffiliateId, currentReferr
                       <div className="w-8 flex justify-center">
                         {getRankIcon(entry.rank)}
                       </div>
+                      <Avatar className="h-10 w-10 border border-border">
+                        <AvatarImage 
+                          src={entry.avatar_url || getGravatarUrl(entry.referral_code)} 
+                          alt={entry.full_name || entry.referral_code} 
+                        />
+                        <AvatarFallback className="text-xs bg-primary/20 text-primary">
+                          {entry.full_name?.split(' ').map(n => n[0]).join('').toUpperCase() || entry.referral_code.substring(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
-                        <p className="font-mono font-medium">
-                          {maskReferralCode(entry.referral_code, entry.isCurrentUser)}
+                        <p className="font-medium">
+                          {entry.isCurrentUser 
+                            ? (entry.full_name || entry.referral_code)
+                            : (entry.full_name 
+                                ? maskName(entry.full_name) 
+                                : maskReferralCode(entry.referral_code, false)
+                              )
+                          }
                           {entry.isCurrentUser && (
                             <Badge variant="outline" className="ml-2 text-xs border-primary text-primary">
                               You
                             </Badge>
                           )}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {entry.isCurrentUser ? entry.referral_code : maskReferralCode(entry.referral_code, false)}
                         </p>
                       </div>
                     </div>

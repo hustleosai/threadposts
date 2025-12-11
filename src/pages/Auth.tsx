@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long');
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -55,6 +56,7 @@ export default function Auth() {
     e.preventDefault();
     
     try {
+      nameSchema.parse(fullName.trim());
       emailSchema.parse(email);
       passwordSchema.parse(password);
     } catch (err) {
@@ -134,13 +136,14 @@ export default function Auth() {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
+                  <Label htmlFor="signup-name">Full Name <span className="text-destructive">*</span></Label>
                   <Input
                     id="signup-name"
                     type="text"
                     placeholder="John Doe"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-2">

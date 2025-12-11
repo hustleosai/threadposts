@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import AffiliateLeaderboard from '@/components/AffiliateLeaderboard';
+import AffiliateProfile from '@/components/AffiliateProfile';
 import { 
   Users, 
   DollarSign, 
@@ -414,6 +415,13 @@ export default function Affiliate() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Profile Customization */}
+        <AffiliateProfile 
+          affiliateId={affiliate.id}
+          currentReferralCode={affiliate.referral_code}
+          onUpdate={fetchAffiliateData}
+        />
 
         {/* Leaderboard */}
         <AffiliateLeaderboard 
