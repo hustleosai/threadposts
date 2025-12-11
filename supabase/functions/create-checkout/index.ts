@@ -109,12 +109,16 @@ serve(async (req) => {
       // Get current affiliate data
       const { data: affiliate } = await supabaseClient
         .from('affiliates')
-        .select('pending_balance')
+        .select('pending_balance, min_payout_threshold')
         .eq('id', affiliateId)
         .single();
 
       if (affiliate) {
-        const newBalance = (Number(affiliate.pending_balance) || 0) + commissionAmount;
+        const currentBalance = Number(affiliate.pending_balance) || 0;
+        const threshold = Number(affiliate.min_payout_threshold) || 25;
+        const newBalance = currentBalance + commissionAmount;
+        const wasUnderThreshold = currentBalance < threshold;
+        const nowAtOrOverThreshold = newBalance >= threshold;
         
         await supabaseClient
           .from('affiliates')
@@ -131,6 +135,28 @@ serve(async (req) => {
           });
 
         logStep("Commission added", { affiliateId, commissionAmount, newBalance });
+
+        // Send threshold notification if they just crossed it
+        if (wasUnderThreshold && nowAtOrOverThreshold) {
+          logStep("Affiliate crossed payout threshold, sending notification");
+          try {
+            await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-threshold-notification`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({
+                affiliate_id: affiliateId,
+                new_balance: newBalance,
+                threshold: threshold,
+              }),
+            });
+            logStep("Threshold notification sent");
+          } catch (notifError) {
+            logStep("Failed to send threshold notification", { error: notifError });
+          }
+        }
       }
     }
 
