@@ -46,7 +46,6 @@ export type Database = {
           affiliate_id: string
           amount: number
           created_at: string
-          customer_email: string | null
           id: string
           original_earning_id: string | null
           reason: string
@@ -56,7 +55,6 @@ export type Database = {
           affiliate_id: string
           amount: number
           created_at?: string
-          customer_email?: string | null
           id?: string
           original_earning_id?: string | null
           reason: string
@@ -66,7 +64,6 @@ export type Database = {
           affiliate_id?: string
           amount?: number
           created_at?: string
-          customer_email?: string | null
           id?: string
           original_earning_id?: string | null
           reason?: string

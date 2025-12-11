@@ -64,7 +64,6 @@ interface Deduction {
   id: string;
   amount: number;
   reason: string;
-  customer_email: string | null;
   created_at: string;
 }
 
@@ -143,7 +142,7 @@ export default function Affiliate() {
       // Fetch deductions history
       const { data: deductionsData } = await supabase
         .from('affiliate_deductions')
-        .select('id, amount, reason, customer_email, created_at')
+        .select('id, amount, reason, created_at')
         .eq('affiliate_id', affiliateData.id)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -569,9 +568,6 @@ export default function Affiliate() {
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {new Date(item.created_at).toLocaleDateString()} at {new Date(item.created_at).toLocaleTimeString()}
-                            {item.type === 'deduction' && (item as Deduction).customer_email && (
-                              <span> • {(item as Deduction).customer_email}</span>
-                            )}
                           </p>
                         </div>
                       </div>
