@@ -37,8 +37,9 @@ interface UserProfile {
   user_id: string;
   email: string | null;
   full_name: string | null;
-  subscription_status: string | null;
+  avatar_url: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 interface ThreadHistory {
@@ -342,7 +343,6 @@ export default function Admin() {
                         <TableHead>Email</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Role</TableHead>
-                        <TableHead>Status</TableHead>
                         <TableHead>Joined</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
@@ -363,11 +363,6 @@ export default function Admin() {
                                 </Badge>
                               ))}
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={userProfile.subscription_status === 'active' ? 'default' : 'outline'}>
-                              {userProfile.subscription_status || 'free'}
-                            </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {new Date(userProfile.created_at).toLocaleDateString()}
@@ -400,7 +395,7 @@ export default function Admin() {
                       ))}
                       {filteredUsers.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                             No users found
                           </TableCell>
                         </TableRow>
