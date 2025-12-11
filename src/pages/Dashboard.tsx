@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import { 
@@ -18,8 +19,12 @@ import {
   Linkedin,
   MessageCircle,
   Crown,
-  CreditCard
+  CreditCard,
+  Lock,
+  Zap
 } from 'lucide-react';
+
+const FREE_GENERATION_LIMIT = 3;
 
 const platforms = [
   { value: 'twitter', label: 'Twitter/X', icon: Twitter },
@@ -46,6 +51,34 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [generationCount, setGenerationCount] = useState(0);
+  const [loadingCount, setLoadingCount] = useState(true);
+
+  const remainingGenerations = Math.max(0, FREE_GENERATION_LIMIT - generationCount);
+  const hasReachedLimit = !subscribed && generationCount >= FREE_GENERATION_LIMIT;
+
+  // Fetch generation count
+  useEffect(() => {
+    async function fetchGenerationCount() {
+      if (!user?.id) return;
+      
+      try {
+        const { count, error } = await supabase
+          .from('thread_history')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        setGenerationCount(count || 0);
+      } catch (error) {
+        console.error('Error fetching generation count:', error);
+      } finally {
+        setLoadingCount(false);
+      }
+    }
+
+    fetchGenerationCount();
+  }, [user?.id]);
 
   // Check for successful checkout
   useEffect(() => {
@@ -106,6 +139,12 @@ export default function Dashboard() {
       return;
     }
 
+    // Check generation limit for non-subscribers
+    if (!subscribed && generationCount >= FREE_GENERATION_LIMIT) {
+      toast.error('You have reached your free generation limit. Upgrade to Pro for unlimited generations!');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(
@@ -129,13 +168,16 @@ export default function Dashboard() {
       setGeneratedThread(data.content);
       toast.success('Thread generated successfully!');
 
-      // Save to history
+      // Save to history and update count
       await supabase.from('thread_history').insert({
         user_id: user?.id,
         topic,
         platform: platform as 'twitter' | 'linkedin' | 'facebook' | 'threads',
         content: data.content,
       });
+
+      // Update generation count
+      setGenerationCount(prev => prev + 1);
     } catch (error) {
       console.error('Error generating thread:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to generate thread');
@@ -177,33 +219,78 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        {/* Subscription Banner */}
-        {!subscribed && !checkingSubscription && (
-          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-            <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3">
-                <Crown className="h-8 w-8 text-primary" />
-                <div>
-                  <h3 className="font-semibold">Upgrade to Pro</h3>
-                  <p className="text-sm text-muted-foreground">Get unlimited AI thread generation for $5/month</p>
+        {/* Paywall - Limit Reached */}
+        {hasReachedLimit && !checkingSubscription && (
+          <Card className="bg-gradient-to-r from-destructive/10 to-orange-500/10 border-destructive/30">
+            <CardContent className="py-6">
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="p-4 rounded-full bg-destructive/10">
+                  <Lock className="h-10 w-10 text-destructive" />
                 </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Free Limit Reached</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    You've used all {FREE_GENERATION_LIMIT} free thread generations. 
+                    Upgrade to Pro for unlimited AI-powered threads!
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleSubscribe} 
+                  disabled={checkoutLoading}
+                  size="lg"
+                  className="gradient-primary mt-2"
+                >
+                  {checkoutLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Crown className="h-4 w-4 mr-2" />
+                  )}
+                  Upgrade to Pro - $5/month
+                </Button>
               </div>
-              <Button 
-                onClick={handleSubscribe} 
-                disabled={checkoutLoading}
-                className="gradient-primary"
-              >
-                {checkoutLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <CreditCard className="h-4 w-4 mr-2" />
-                )}
-                Subscribe Now
-              </Button>
             </CardContent>
           </Card>
         )}
 
+        {/* Free Tier Usage Counter */}
+        {!subscribed && !hasReachedLimit && !checkingSubscription && !loadingCount && (
+          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+            <CardContent className="py-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1">
+                  <Zap className="h-8 w-8 text-primary" />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-semibold">Free Generations</h3>
+                      <span className="text-sm font-medium text-primary">
+                        {remainingGenerations} of {FREE_GENERATION_LIMIT} remaining
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(remainingGenerations / FREE_GENERATION_LIMIT) * 100} 
+                      className="h-2"
+                    />
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleSubscribe} 
+                  disabled={checkoutLoading}
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary/10"
+                >
+                  {checkoutLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Crown className="h-4 w-4 mr-2" />
+                  )}
+                  Go Unlimited
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pro Member Banner */}
         {subscribed && (
           <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/5 border-green-500/20">
             <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
@@ -291,24 +378,45 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <Button 
-                onClick={generateThread} 
-                disabled={loading}
-                className="w-full gradient-primary"
-                size="lg"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-5 w-5" />
-                    Generate Thread
-                  </>
-                )}
-              </Button>
+              {hasReachedLimit ? (
+                <Button 
+                  onClick={handleSubscribe} 
+                  disabled={checkoutLoading}
+                  className="w-full bg-destructive hover:bg-destructive/90"
+                  size="lg"
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="mr-2 h-5 w-5" />
+                      Upgrade to Generate More
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button 
+                  onClick={generateThread} 
+                  disabled={loading}
+                  className="w-full gradient-primary"
+                  size="lg"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Generate Thread
+                    </>
+                  )}
+                </Button>
+              )}
             </CardContent>
           </Card>
 
