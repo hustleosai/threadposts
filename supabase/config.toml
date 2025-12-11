@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.track-referral]
 verify_jwt = false
+
+[functions.admin-manage-subscription]
+verify_jwt = true
