@@ -109,7 +109,7 @@ serve(async (req) => {
       `;
 
     const emailResponse = await resend.emails.send({
-      from: "ThreadPosts <onboarding@resend.dev>",
+      from: "ThreadPosts <hello@threadposts.com>",
       to: [profile.email],
       subject,
       html: htmlContent,
