@@ -82,7 +82,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {user?.email?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1 truncate">
-                <p className="text-sm font-medium truncate">{user?.email}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium truncate">{user?.email}</p>
+                  {isAdmin && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/50 text-primary bg-primary/10 shrink-0">
+                      <Shield className="h-2.5 w-2.5 mr-0.5" />
+                      Admin
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
             <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
