@@ -185,11 +185,6 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
-          stripe_customer_id: string | null
-          subscription_id: string | null
-          subscription_status:
-            | Database["public"]["Enums"]["subscription_status"]
-            | null
           updated_at: string
           user_id: string
         }
@@ -199,11 +194,6 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
-          stripe_customer_id?: string | null
-          subscription_id?: string | null
-          subscription_status?:
-            | Database["public"]["Enums"]["subscription_status"]
-            | null
           updated_at?: string
           user_id: string
         }
@@ -213,11 +203,6 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
-          stripe_customer_id?: string | null
-          subscription_id?: string | null
-          subscription_status?:
-            | Database["public"]["Enums"]["subscription_status"]
-            | null
           updated_at?: string
           user_id?: string
         }
@@ -346,6 +331,42 @@ export type Database = {
           is_favorite?: boolean | null
           platform?: Database["public"]["Enums"]["platform_type"]
           topic?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_billing: {
+        Row: {
+          created_at: string
+          id: string
+          stripe_customer_id: string | null
+          subscription_id: string | null
+          subscription_status:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          subscription_status?:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          stripe_customer_id?: string | null
+          subscription_id?: string | null
+          subscription_status?:
+            | Database["public"]["Enums"]["subscription_status"]
+            | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
