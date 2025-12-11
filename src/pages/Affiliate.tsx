@@ -159,6 +159,14 @@ export default function Affiliate() {
     } else {
       setAffiliate(data);
       toast.success('Welcome to the affiliate program!');
+      
+      // Send welcome email
+      supabase.functions.invoke('send-affiliate-welcome', {
+        body: { referral_code: code },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      }).catch((err) => console.error('Failed to send welcome email:', err));
     }
   };
 
