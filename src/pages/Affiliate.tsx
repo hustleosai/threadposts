@@ -430,23 +430,6 @@ export default function Affiliate() {
           currentReferralCode={affiliate.referral_code} 
         />
 
-        {/* Referral Link */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle>Your Referral Link</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input value={referralLink} readOnly className="font-mono text-sm" />
-              <Button onClick={copyReferralLink} variant="outline">
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Share this link to earn {affiliate.commission_rate}% (${(5 * 0.5).toFixed(2)}) on every subscription.
-            </p>
-          </CardContent>
-        </Card>
 
         {/* Marketing Tools */}
         <Tabs defaultValue="banners" className="space-y-4">
