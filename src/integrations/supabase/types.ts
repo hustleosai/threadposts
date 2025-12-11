@@ -41,6 +41,54 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_deductions: {
+        Row: {
+          affiliate_id: string
+          amount: number
+          created_at: string
+          customer_email: string | null
+          id: string
+          original_earning_id: string | null
+          reason: string
+          refund_id: string | null
+        }
+        Insert: {
+          affiliate_id: string
+          amount: number
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          original_earning_id?: string | null
+          reason: string
+          refund_id?: string | null
+        }
+        Update: {
+          affiliate_id?: string
+          amount?: number
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          original_earning_id?: string | null
+          reason?: string
+          refund_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_deductions_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_deductions_original_earning_id_fkey"
+            columns: ["original_earning_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_earnings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_earnings: {
         Row: {
           affiliate_id: string
