@@ -88,7 +88,7 @@ export default function Images() {
   } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
-  const [images, setImages] = useState<ViralImage[]>(sampleImages);
+  const [images, setImages] = useState<ViralImage[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function Images() {
     } = await supabase.from('viral_images').select('*').order('created_at', {
       ascending: false
     });
-    if (data && data.length > 0) {
+    if (data) {
       setImages(data);
     }
   };
