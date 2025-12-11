@@ -357,8 +357,10 @@ export type Database = {
           description: string | null
           id: string
           image_url: string
+          status: string
           tags: string[] | null
           title: string
+          uploaded_by: string | null
         }
         Insert: {
           category: string
@@ -366,8 +368,10 @@ export type Database = {
           description?: string | null
           id?: string
           image_url: string
+          status?: string
           tags?: string[] | null
           title: string
+          uploaded_by?: string | null
         }
         Update: {
           category?: string
@@ -375,8 +379,10 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string
+          status?: string
           tags?: string[] | null
           title?: string
+          uploaded_by?: string | null
         }
         Relationships: []
       }

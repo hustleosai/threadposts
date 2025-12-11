@@ -21,8 +21,10 @@ import {
   Trash2,
   Crown,
   ShieldPlus,
-  ShieldMinus
+  ShieldMinus,
+  Image
 } from 'lucide-react';
+import AdminImageModeration from '@/components/AdminImageModeration';
 
 interface UserProfile {
   id: string;
@@ -284,6 +286,10 @@ export default function Admin() {
               <MessageSquare className="h-4 w-4" />
               Threads
             </TabsTrigger>
+            <TabsTrigger value="images" className="gap-2">
+              <Image className="h-4 w-4" />
+              Images
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
               Settings
@@ -464,6 +470,11 @@ export default function Admin() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Images Tab */}
+          <TabsContent value="images">
+            <AdminImageModeration />
           </TabsContent>
 
           {/* Settings Tab */}
