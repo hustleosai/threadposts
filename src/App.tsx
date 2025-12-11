@@ -59,6 +59,11 @@ const App = () => (
                 <Admin />
               </ProtectedRoute>
             } />
+            <Route path="/admin/:section" element={
+              <ProtectedRoute>
+                <Admin />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
