@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import ImageUploadDialog from '@/components/ImageUploadDialog';
-import { Image, Download, Search, Eye, Clock, Lock, Crown, Sparkles, X } from 'lucide-react';
+import { Image, Download, Search, Eye, Clock, Lock, Crown, Sparkles, ThumbsUp, ThumbsDown, TrendingUp } from 'lucide-react';
+
 interface ViralImage {
   id: string;
   title: string;
@@ -21,6 +22,12 @@ interface ViralImage {
   tags: string[] | null;
   status?: string;
   uploaded_by?: string | null;
+  virality_score?: number;
+}
+
+interface ImageVote {
+  image_id: string;
+  vote_type: number;
 }
 
 // Sample images for demo
@@ -90,21 +97,100 @@ export default function Images() {
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const [images, setImages] = useState<ViralImage[]>([]);
+  const [userVotes, setUserVotes] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<ViralImage | null>(null);
+  const [sortByVirality, setSortByVirality] = useState(false);
+
   useEffect(() => {
     fetchImages();
-  }, []);
+    if (user) {
+      fetchUserVotes();
+    }
+  }, [user]);
+
   const fetchImages = async () => {
-    const {
-      data,
-      error
-    } = await supabase.from('viral_images').select('*').order('created_at', {
-      ascending: false
-    });
+    const { data, error } = await supabase
+      .from('viral_images')
+      .select('*')
+      .order('created_at', { ascending: false });
     if (data) {
       setImages(data);
+    }
+  };
+
+  const fetchUserVotes = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('image_votes')
+      .select('image_id, vote_type')
+      .eq('user_id', user.id);
+    if (data) {
+      const votesMap: Record<string, number> = {};
+      data.forEach((vote: ImageVote) => {
+        votesMap[vote.image_id] = vote.vote_type;
+      });
+      setUserVotes(votesMap);
+    }
+  };
+
+  const handleVote = async (imageId: string, voteType: 1 | -1) => {
+    if (!user) {
+      toast.error('Please sign in to vote');
+      return;
+    }
+
+    const currentVote = userVotes[imageId];
+    
+    try {
+      if (currentVote === voteType) {
+        // Remove vote
+        await supabase
+          .from('image_votes')
+          .delete()
+          .eq('image_id', imageId)
+          .eq('user_id', user.id);
+        
+        setUserVotes(prev => {
+          const updated = { ...prev };
+          delete updated[imageId];
+          return updated;
+        });
+        setImages(prev => prev.map(img => 
+          img.id === imageId 
+            ? { ...img, virality_score: (img.virality_score || 0) - voteType }
+            : img
+        ));
+      } else if (currentVote) {
+        // Change vote
+        await supabase
+          .from('image_votes')
+          .update({ vote_type: voteType })
+          .eq('image_id', imageId)
+          .eq('user_id', user.id);
+        
+        setUserVotes(prev => ({ ...prev, [imageId]: voteType }));
+        setImages(prev => prev.map(img => 
+          img.id === imageId 
+            ? { ...img, virality_score: (img.virality_score || 0) - currentVote + voteType }
+            : img
+        ));
+      } else {
+        // New vote
+        await supabase
+          .from('image_votes')
+          .insert({ image_id: imageId, user_id: user.id, vote_type: voteType });
+        
+        setUserVotes(prev => ({ ...prev, [imageId]: voteType }));
+        setImages(prev => prev.map(img => 
+          img.id === imageId 
+            ? { ...img, virality_score: (img.virality_score || 0) + voteType }
+            : img
+        ));
+      }
+    } catch (error) {
+      toast.error('Failed to record vote');
     }
   };
   const myPendingImages = images.filter(img => img.status === 'pending' && img.uploaded_by === user?.id);
@@ -127,11 +213,21 @@ export default function Images() {
     }
   };
   const categories = Array.from(new Set(images.map(i => i.category)));
-  const filteredImages = images.filter(image => {
-    const matchesSearch = searchQuery === '' || image.title.toLowerCase().includes(searchQuery.toLowerCase()) || image.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === null || image.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  
+  const filteredImages = images
+    .filter(image => {
+      const matchesSearch = searchQuery === '' || 
+        image.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        image.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCategory = selectedCategory === null || image.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      if (sortByVirality) {
+        return (b.virality_score || 0) - (a.virality_score || 0);
+      }
+      return 0;
+    });
   const handleUpgrade = async () => {
     if (!user) {
       navigate('/auth');
@@ -253,13 +349,21 @@ export default function Images() {
             </div>
           </div>}
 
-        {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search images..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button 
+              variant={sortByVirality ? 'default' : 'outline'} 
+              size="sm" 
+              onClick={() => setSortByVirality(!sortByVirality)}
+              className="gap-1"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Hot
+            </Button>
             <Button variant={selectedCategory === null ? 'default' : 'outline'} size="sm" onClick={() => setSelectedCategory(null)}>
               All
             </Button>
@@ -267,6 +371,64 @@ export default function Images() {
                 {category}
               </Button>)}
           </div>
+        </div>
+
+        {/* Images Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filteredImages.filter(img => img.status === 'approved' || !img.status).map(image => <Card key={image.id} className="bg-card border-border overflow-hidden group">
+              <CardContent className="p-0 relative">
+                <img src={image.image_url} alt={image.title} className="w-full aspect-square object-cover" />
+                <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
+                  <h3 className="font-semibold text-sm text-center">{image.title}</h3>
+                  <p className="text-xs text-muted-foreground text-center">{image.description}</p>
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" variant="outline" onClick={() => setPreviewImage(image)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => downloadImage(image.image_url, image.title)}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {/* Voting buttons */}
+                  <div className="flex items-center gap-1 mt-2">
+                    <Button 
+                      size="sm" 
+                      variant={userVotes[image.id] === 1 ? 'default' : 'outline'}
+                      onClick={() => handleVote(image.id, 1)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                    </Button>
+                    <span className={`text-sm font-semibold min-w-[2rem] text-center ${
+                      (image.virality_score || 0) > 0 ? 'text-green-500' : 
+                      (image.virality_score || 0) < 0 ? 'text-red-500' : 'text-muted-foreground'
+                    }`}>
+                      {image.virality_score || 0}
+                    </span>
+                    <Button 
+                      size="sm" 
+                      variant={userVotes[image.id] === -1 ? 'default' : 'outline'}
+                      onClick={() => handleVote(image.id, -1)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="absolute top-2 left-2 px-2 py-1 rounded bg-background/80 text-xs">
+                  {image.category}
+                </div>
+                {/* Virality score badge */}
+                {(image.virality_score || 0) !== 0 && (
+                  <div className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 ${
+                    (image.virality_score || 0) > 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                  }`}>
+                    <TrendingUp className="h-3 w-3" />
+                    {image.virality_score}
+                  </div>
+                )}
+              </CardContent>
+            </Card>)}
         </div>
 
         {/* Images Grid */}
@@ -317,16 +479,55 @@ export default function Images() {
                   <p className="text-sm text-muted-foreground">{previewImage.description}</p>
                 )}
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Badge variant="secondary">{previewImage.category}</Badge>
                     {previewImage.tags?.map(tag => (
                       <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                     ))}
                   </div>
-                  <Button onClick={() => downloadImage(previewImage.image_url, previewImage.title)} className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    {/* Voting in preview */}
+                    <div className="flex items-center gap-1">
+                      <Button 
+                        size="sm" 
+                        variant={userVotes[previewImage.id] === 1 ? 'default' : 'outline'}
+                        onClick={() => {
+                          handleVote(previewImage.id, 1);
+                          setPreviewImage(prev => prev ? {
+                            ...prev,
+                            virality_score: (prev.virality_score || 0) + (userVotes[previewImage.id] === 1 ? -1 : userVotes[previewImage.id] === -1 ? 2 : 1)
+                          } : null);
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ThumbsUp className="h-4 w-4" />
+                      </Button>
+                      <span className={`text-sm font-semibold min-w-[2rem] text-center ${
+                        (previewImage.virality_score || 0) > 0 ? 'text-green-500' : 
+                        (previewImage.virality_score || 0) < 0 ? 'text-red-500' : 'text-muted-foreground'
+                      }`}>
+                        {previewImage.virality_score || 0}
+                      </span>
+                      <Button 
+                        size="sm" 
+                        variant={userVotes[previewImage.id] === -1 ? 'default' : 'outline'}
+                        onClick={() => {
+                          handleVote(previewImage.id, -1);
+                          setPreviewImage(prev => prev ? {
+                            ...prev,
+                            virality_score: (prev.virality_score || 0) + (userVotes[previewImage.id] === -1 ? 1 : userVotes[previewImage.id] === 1 ? -2 : -1)
+                          } : null);
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ThumbsDown className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button onClick={() => downloadImage(previewImage.image_url, previewImage.title)} className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Download
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
