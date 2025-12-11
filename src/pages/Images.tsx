@@ -8,10 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import ImageUploadDialog from '@/components/ImageUploadDialog';
-import { Image, Download, Search, Eye, Clock, Lock, Crown, Sparkles, ThumbsUp, ThumbsDown, TrendingUp } from 'lucide-react';
+import { Image, Download, Search, Eye, Clock, Lock, Crown, Sparkles, ThumbsUp, ThumbsDown, TrendingUp, Flame } from 'lucide-react';
+import { subDays, subWeeks, subMonths, startOfDay } from 'date-fns';
+
+type TrendingPeriod = 'all' | 'today' | 'week' | 'month';
 
 interface ViralImage {
   id: string;
@@ -23,11 +27,13 @@ interface ViralImage {
   status?: string;
   uploaded_by?: string | null;
   virality_score?: number;
+  period_score?: number;
 }
 
 interface ImageVote {
   image_id: string;
   vote_type: number;
+  created_at: string;
 }
 
 // Sample images for demo
@@ -98,10 +104,12 @@ export default function Images() {
   const navigate = useNavigate();
   const [images, setImages] = useState<ViralImage[]>([]);
   const [userVotes, setUserVotes] = useState<Record<string, number>>({});
+  const [periodScores, setPeriodScores] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<ViralImage | null>(null);
   const [sortByVirality, setSortByVirality] = useState(false);
+  const [trendingPeriod, setTrendingPeriod] = useState<TrendingPeriod>('all');
 
   useEffect(() => {
     fetchImages();
@@ -109,6 +117,26 @@ export default function Images() {
       fetchUserVotes();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (sortByVirality && trendingPeriod !== 'all') {
+      fetchPeriodScores();
+    }
+  }, [trendingPeriod, sortByVirality]);
+
+  const getPeriodStartDate = (period: TrendingPeriod): Date | null => {
+    const now = new Date();
+    switch (period) {
+      case 'today':
+        return startOfDay(now);
+      case 'week':
+        return subWeeks(now, 1);
+      case 'month':
+        return subMonths(now, 1);
+      default:
+        return null;
+    }
+  };
 
   const fetchImages = async () => {
     const { data, error } = await supabase
@@ -120,11 +148,32 @@ export default function Images() {
     }
   };
 
+  const fetchPeriodScores = async () => {
+    const startDate = getPeriodStartDate(trendingPeriod);
+    if (!startDate) {
+      setPeriodScores({});
+      return;
+    }
+
+    const { data } = await supabase
+      .from('image_votes')
+      .select('image_id, vote_type')
+      .gte('created_at', startDate.toISOString());
+
+    if (data) {
+      const scores: Record<string, number> = {};
+      data.forEach((vote: { image_id: string; vote_type: number }) => {
+        scores[vote.image_id] = (scores[vote.image_id] || 0) + vote.vote_type;
+      });
+      setPeriodScores(scores);
+    }
+  };
+
   const fetchUserVotes = async () => {
     if (!user) return;
     const { data } = await supabase
       .from('image_votes')
-      .select('image_id, vote_type')
+      .select('image_id, vote_type, created_at')
       .eq('user_id', user.id);
     if (data) {
       const votesMap: Record<string, number> = {};
@@ -133,6 +182,13 @@ export default function Images() {
       });
       setUserVotes(votesMap);
     }
+  };
+
+  const getDisplayScore = (image: ViralImage): number => {
+    if (sortByVirality && trendingPeriod !== 'all') {
+      return periodScores[image.id] || 0;
+    }
+    return image.virality_score || 0;
   };
 
   const handleVote = async (imageId: string, voteType: 1 | -1) => {
@@ -224,7 +280,9 @@ export default function Images() {
     })
     .sort((a, b) => {
       if (sortByVirality) {
-        return (b.virality_score || 0) - (a.virality_score || 0);
+        const scoreA = trendingPeriod !== 'all' ? (periodScores[a.id] || 0) : (a.virality_score || 0);
+        const scoreB = trendingPeriod !== 'all' ? (periodScores[b.id] || 0) : (b.virality_score || 0);
+        return scoreB - scoreA;
       }
       return 0;
     });
@@ -354,16 +412,29 @@ export default function Images() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search images..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-10" />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Button 
               variant={sortByVirality ? 'default' : 'outline'} 
               size="sm" 
               onClick={() => setSortByVirality(!sortByVirality)}
               className="gap-1"
             >
-              <TrendingUp className="h-4 w-4" />
+              <Flame className="h-4 w-4" />
               Hot
             </Button>
+            {sortByVirality && (
+              <Select value={trendingPeriod} onValueChange={(value: TrendingPeriod) => setTrendingPeriod(value)}>
+                <SelectTrigger className="w-[120px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Button variant={selectedCategory === null ? 'default' : 'outline'} size="sm" onClick={() => setSelectedCategory(null)}>
               All
             </Button>
@@ -400,10 +471,10 @@ export default function Images() {
                       <ThumbsUp className="h-4 w-4" />
                     </Button>
                     <span className={`text-sm font-semibold min-w-[2rem] text-center ${
-                      (image.virality_score || 0) > 0 ? 'text-green-500' : 
-                      (image.virality_score || 0) < 0 ? 'text-red-500' : 'text-muted-foreground'
+                      getDisplayScore(image) > 0 ? 'text-green-500' : 
+                      getDisplayScore(image) < 0 ? 'text-red-500' : 'text-muted-foreground'
                     }`}>
-                      {image.virality_score || 0}
+                      {getDisplayScore(image)}
                     </span>
                     <Button 
                       size="sm" 
@@ -419,41 +490,18 @@ export default function Images() {
                   {image.category}
                 </div>
                 {/* Virality score badge */}
-                {(image.virality_score || 0) !== 0 && (
+                {getDisplayScore(image) !== 0 && (
                   <div className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 ${
-                    (image.virality_score || 0) > 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                    getDisplayScore(image) > 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
                   }`}>
-                    <TrendingUp className="h-3 w-3" />
-                    {image.virality_score}
+                    <Flame className="h-3 w-3" />
+                    {getDisplayScore(image)}
                   </div>
                 )}
               </CardContent>
             </Card>)}
         </div>
 
-        {/* Images Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredImages.filter(img => img.status === 'approved' || !img.status).map(image => <Card key={image.id} className="bg-card border-border overflow-hidden group">
-              <CardContent className="p-0 relative">
-                <img src={image.image_url} alt={image.title} className="w-full aspect-square object-cover" />
-                <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4">
-                  <h3 className="font-semibold text-sm text-center">{image.title}</h3>
-                  <p className="text-xs text-muted-foreground text-center">{image.description}</p>
-                  <div className="flex gap-2 mt-2">
-                    <Button size="sm" variant="outline" onClick={() => setPreviewImage(image)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => downloadImage(image.image_url, image.title)}>
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="absolute top-2 left-2 px-2 py-1 rounded bg-background/80 text-xs">
-                  {image.category}
-                </div>
-              </CardContent>
-            </Card>)}
-        </div>
 
         {filteredImages.length === 0 && <div className="text-center py-16 text-muted-foreground">
             <Image className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -491,33 +539,21 @@ export default function Images() {
                       <Button 
                         size="sm" 
                         variant={userVotes[previewImage.id] === 1 ? 'default' : 'outline'}
-                        onClick={() => {
-                          handleVote(previewImage.id, 1);
-                          setPreviewImage(prev => prev ? {
-                            ...prev,
-                            virality_score: (prev.virality_score || 0) + (userVotes[previewImage.id] === 1 ? -1 : userVotes[previewImage.id] === -1 ? 2 : 1)
-                          } : null);
-                        }}
+                        onClick={() => handleVote(previewImage.id, 1)}
                         className="h-8 w-8 p-0"
                       >
                         <ThumbsUp className="h-4 w-4" />
                       </Button>
                       <span className={`text-sm font-semibold min-w-[2rem] text-center ${
-                        (previewImage.virality_score || 0) > 0 ? 'text-green-500' : 
-                        (previewImage.virality_score || 0) < 0 ? 'text-red-500' : 'text-muted-foreground'
+                        getDisplayScore(previewImage) > 0 ? 'text-green-500' : 
+                        getDisplayScore(previewImage) < 0 ? 'text-red-500' : 'text-muted-foreground'
                       }`}>
-                        {previewImage.virality_score || 0}
+                        {getDisplayScore(previewImage)}
                       </span>
                       <Button 
                         size="sm" 
                         variant={userVotes[previewImage.id] === -1 ? 'default' : 'outline'}
-                        onClick={() => {
-                          handleVote(previewImage.id, -1);
-                          setPreviewImage(prev => prev ? {
-                            ...prev,
-                            virality_score: (prev.virality_score || 0) + (userVotes[previewImage.id] === -1 ? 1 : userVotes[previewImage.id] === 1 ? -2 : -1)
-                          } : null);
-                        }}
+                        onClick={() => handleVote(previewImage.id, -1)}
                         className="h-8 w-8 p-0"
                       >
                         <ThumbsDown className="h-4 w-4" />
