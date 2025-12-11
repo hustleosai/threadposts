@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
 import { 
   Sparkles, 
@@ -10,7 +11,8 @@ import {
   Users, 
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -23,10 +25,17 @@ const navigation = [
   { name: 'Affiliate', href: '/affiliate', icon: Users },
 ];
 
+const adminNavigation = [
+  { name: 'Admin', href: '/admin', icon: Shield },
+];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const allNavigation = isAdmin ? [...navigation, ...adminNavigation] : navigation;
 
   return (
     <div className="min-h-screen bg-background">
@@ -41,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           
           <nav className="flex-1 p-4 space-y-1">
-            {navigation.map((item) => (
+            {allNavigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -49,7 +58,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
                   location.pathname === item.href
                     ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                  item.name === 'Admin' && 'border border-primary/30'
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -90,7 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <nav className="p-4 border-t border-border bg-card">
-            {navigation.map((item) => (
+            {allNavigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -99,7 +109,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium',
                   location.pathname === item.href
                     ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground'
+                    : 'text-muted-foreground',
+                  item.name === 'Admin' && 'border border-primary/30'
                 )}
               >
                 <item.icon className="h-5 w-5" />
