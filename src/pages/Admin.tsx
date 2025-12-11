@@ -19,8 +19,9 @@ import {
   Shield, 
   Search,
   Trash2,
-  Eye,
-  Crown
+  Crown,
+  ShieldPlus,
+  ShieldMinus
 } from 'lucide-react';
 
 interface UserProfile {
@@ -43,6 +44,7 @@ interface ThreadHistory {
 }
 
 interface UserRole {
+  id?: string;
   user_id: string;
   role: string;
 }
@@ -116,12 +118,60 @@ export default function Admin() {
     try {
       const { data, error } = await supabase
         .from('user_roles')
-        .select('user_id, role');
+        .select('id, user_id, role');
 
       if (error) throw error;
       setUserRoles(data || []);
     } catch (error) {
       console.error('Error fetching user roles:', error);
+    }
+  };
+
+  const isUserAdmin = (userId: string) => {
+    return userRoles.some(r => r.user_id === userId && r.role === 'admin');
+  };
+
+  const grantAdminRole = async (userId: string) => {
+    // Prevent removing your own admin role
+    if (isUserAdmin(userId)) {
+      toast.error('User already has admin role');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .insert({ user_id: userId, role: 'admin' });
+
+      if (error) throw error;
+      await fetchUserRoles();
+      toast.success('Admin role granted');
+    } catch (error) {
+      console.error('Error granting admin role:', error);
+      toast.error('Failed to grant admin role');
+    }
+  };
+
+  const revokeAdminRole = async (userId: string) => {
+    // Prevent removing your own admin role
+    if (userId === user?.id) {
+      toast.error("You cannot revoke your own admin role");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId)
+        .eq('role', 'admin');
+
+      if (error) throw error;
+      await fetchUserRoles();
+      toast.success('Admin role revoked');
+    } catch (error) {
+      console.error('Error revoking admin role:', error);
+      toast.error('Failed to revoke admin role');
     }
   };
 
@@ -270,16 +320,17 @@ export default function Admin() {
                         <TableHead>Role</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Joined</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredUsers.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.email || 'N/A'}</TableCell>
-                          <TableCell>{user.full_name || 'N/A'}</TableCell>
+                      {filteredUsers.map((userProfile) => (
+                        <TableRow key={userProfile.id}>
+                          <TableCell className="font-medium">{userProfile.email || 'N/A'}</TableCell>
+                          <TableCell>{userProfile.full_name || 'N/A'}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              {getUserRole(user.user_id).map(role => (
+                              {getUserRole(userProfile.user_id).map(role => (
                                 <Badge 
                                   key={role} 
                                   variant={role === 'admin' ? 'default' : 'secondary'}
@@ -290,18 +341,42 @@ export default function Admin() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={user.subscription_status === 'active' ? 'default' : 'outline'}>
-                              {user.subscription_status || 'free'}
+                            <Badge variant={userProfile.subscription_status === 'active' ? 'default' : 'outline'}>
+                              {userProfile.subscription_status || 'free'}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            {new Date(user.created_at).toLocaleDateString()}
+                            {new Date(userProfile.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {isUserAdmin(userProfile.user_id) ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => revokeAdminRole(userProfile.user_id)}
+                                disabled={userProfile.user_id === user?.id}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <ShieldMinus className="h-4 w-4 mr-1" />
+                                Revoke Admin
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => grantAdminRole(userProfile.user_id)}
+                                className="text-primary hover:text-primary"
+                              >
+                                <ShieldPlus className="h-4 w-4 mr-1" />
+                                Grant Admin
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
                       {filteredUsers.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                             No users found
                           </TableCell>
                         </TableRow>
