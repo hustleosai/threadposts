@@ -230,6 +230,38 @@ export type Database = {
         }
         Relationships: []
       }
+      image_votes: {
+        Row: {
+          created_at: string
+          id: string
+          image_id: string
+          user_id: string
+          vote_type: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_id: string
+          user_id: string
+          vote_type: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_id?: string
+          user_id?: string
+          vote_type?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "image_votes_image_id_fkey"
+            columns: ["image_id"]
+            isOneToOne: false
+            referencedRelation: "viral_images"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -452,6 +484,7 @@ export type Database = {
           tags: string[] | null
           title: string
           uploaded_by: string | null
+          virality_score: number
         }
         Insert: {
           category: string
@@ -463,6 +496,7 @@ export type Database = {
           tags?: string[] | null
           title: string
           uploaded_by?: string | null
+          virality_score?: number
         }
         Update: {
           category?: string
@@ -474,6 +508,7 @@ export type Database = {
           tags?: string[] | null
           title?: string
           uploaded_by?: string | null
+          virality_score?: number
         }
         Relationships: []
       }
