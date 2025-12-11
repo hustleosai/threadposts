@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Sparkles, 
   Zap, 
@@ -12,17 +13,18 @@ import {
   LogOut,
   Menu,
   X,
-  Shield
+  Shield,
+  Crown
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
-  { name: 'Generator', href: '/dashboard', icon: Zap },
-  { name: 'Templates', href: '/templates', icon: Layout },
-  { name: 'Images', href: '/images', icon: Image },
-  { name: 'History', href: '/history', icon: Clock },
-  { name: 'Affiliate', href: '/affiliate', icon: Users },
+  { name: 'Generator', href: '/dashboard', icon: Zap, isPro: false },
+  { name: 'Templates', href: '/templates', icon: Layout, isPro: true },
+  { name: 'Images', href: '/images', icon: Image, isPro: true },
+  { name: 'History', href: '/history', icon: Clock, isPro: false },
+  { name: 'Affiliate', href: '/affiliate', icon: Users, isPro: false },
 ];
 
 const adminNavigation = [
@@ -63,7 +65,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                {item.name}
+                <span className="flex-1">{item.name}</span>
+                {'isPro' in item && item.isPro && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/50 text-primary bg-primary/10">
+                    <Crown className="h-2.5 w-2.5 mr-0.5" />
+                    PRO
+                  </Badge>
+                )}
               </Link>
             ))}
           </nav>
@@ -114,7 +122,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                {item.name}
+                <span className="flex-1">{item.name}</span>
+                {'isPro' in item && item.isPro && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-primary/50 text-primary bg-primary/10">
+                    <Crown className="h-2.5 w-2.5 mr-0.5" />
+                    PRO
+                  </Badge>
+                )}
               </Link>
             ))}
             <Button variant="ghost" className="w-full justify-start mt-4" onClick={signOut}>
