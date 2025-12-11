@@ -124,9 +124,6 @@ export default function Index() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" className="text-lg px-8 h-14">
-              View Examples
-            </Button>
           </div>
 
           {/* Platform Icons */}
