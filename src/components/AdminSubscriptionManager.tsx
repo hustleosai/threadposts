@@ -177,7 +177,11 @@ export default function AdminSubscriptionManager() {
         headers: {
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: { action: 'refund', paymentIntentId },
+        body: { 
+          action: 'refund', 
+          paymentIntentId,
+          customerEmail: refundDialog.subscription?.customerEmail,
+        },
       });
 
       if (error) throw error;
