@@ -66,6 +66,14 @@ export default function AdminAnalytics() {
     const previousEnd = endOfDay(subDays(new Date(), days + 1));
 
     try {
+      // First, get admin user IDs to exclude them from analytics
+      const { data: adminRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+      
+      const adminUserIds = new Set(adminRoles?.map(r => r.user_id) || []);
+
       const [
         usersResult,
         threadsResult,
@@ -73,31 +81,37 @@ export default function AdminAnalytics() {
         earningsResult,
         platformResult,
       ] = await Promise.all([
-        supabase.from('profiles').select('created_at'),
-        supabase.from('thread_history').select('created_at, platform'),
-        supabase.from('user_billing').select('subscription_status, created_at, updated_at'),
+        supabase.from('profiles').select('user_id, created_at'),
+        supabase.from('thread_history').select('user_id, created_at, platform'),
+        supabase.from('user_billing').select('user_id, subscription_status, created_at, updated_at'),
         supabase.from('affiliate_earnings').select('amount, created_at'),
-        supabase.from('thread_history').select('platform'),
+        supabase.from('thread_history').select('user_id, platform'),
       ]);
+
+      // Filter out admin users from results
+      const nonAdminUsers = usersResult.data?.filter(u => !adminUserIds.has(u.user_id)) || [];
+      const nonAdminThreads = threadsResult.data?.filter(t => !adminUserIds.has(t.user_id)) || [];
+      const nonAdminSubscriptions = subscriptionsResult.data?.filter(s => !adminUserIds.has(s.user_id)) || [];
+      const nonAdminPlatformData = platformResult.data?.filter(t => !adminUserIds.has(t.user_id)) || [];
 
       const isInRange = (dateStr: string, start: Date, end: Date) => {
         const date = new Date(dateStr);
         return date >= start && date <= end;
       };
 
-      const currentPeriodUsers = usersResult.data?.filter(u => isInRange(u.created_at, currentStart, currentEnd)).length || 0;
-      const currentPeriodThreads = threadsResult.data?.filter(t => isInRange(t.created_at, currentStart, currentEnd)).length || 0;
-      const currentPeriodSubs = subscriptionsResult.data?.filter(s => 
+      const currentPeriodUsers = nonAdminUsers.filter(u => isInRange(u.created_at, currentStart, currentEnd)).length;
+      const currentPeriodThreads = nonAdminThreads.filter(t => isInRange(t.created_at, currentStart, currentEnd)).length;
+      const currentPeriodSubs = nonAdminSubscriptions.filter(s => 
         s.subscription_status === 'active' && isInRange(s.updated_at, currentStart, currentEnd)
-      ).length || 0;
+      ).length;
       const currentPeriodEarnings = earningsResult.data?.filter(e => isInRange(e.created_at, currentStart, currentEnd))
         .reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
-      const previousPeriodUsers = usersResult.data?.filter(u => isInRange(u.created_at, previousStart, previousEnd)).length || 0;
-      const previousPeriodThreads = threadsResult.data?.filter(t => isInRange(t.created_at, previousStart, previousEnd)).length || 0;
-      const previousPeriodSubs = subscriptionsResult.data?.filter(s => 
+      const previousPeriodUsers = nonAdminUsers.filter(u => isInRange(u.created_at, previousStart, previousEnd)).length;
+      const previousPeriodThreads = nonAdminThreads.filter(t => isInRange(t.created_at, previousStart, previousEnd)).length;
+      const previousPeriodSubs = nonAdminSubscriptions.filter(s => 
         s.subscription_status === 'active' && isInRange(s.updated_at, previousStart, previousEnd)
-      ).length || 0;
+      ).length;
       const previousPeriodEarnings = earningsResult.data?.filter(e => isInRange(e.created_at, previousStart, previousEnd))
         .reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
@@ -123,28 +137,28 @@ export default function AdminAnalytics() {
         mrrGrowth: calcGrowth(currentPeriodMRR, previousPeriodMRR),
       });
 
-      const totalUsers = usersResult.data?.length || 0;
-      const totalThreads = threadsResult.data?.length || 0;
-      const activeSubscriptions = subscriptionsResult.data?.filter(
+      const totalUsers = nonAdminUsers.length;
+      const totalThreads = nonAdminThreads.length;
+      const activeSubscriptions = nonAdminSubscriptions.filter(
         s => s.subscription_status === 'active'
-      ).length || 0;
-      const totalPaidUsers = subscriptionsResult.data?.filter(
+      ).length;
+      const totalPaidUsers = nonAdminSubscriptions.filter(
         s => s.subscription_status === 'active' || s.subscription_status === 'canceled'
-      ).length || 0;
+      ).length;
       const totalEarnings = earningsResult.data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
       
       const conversionRate = totalUsers > 0 ? (totalPaidUsers / totalUsers) * 100 : 0;
 
       const today = startOfDay(new Date());
-      const newUsersToday = usersResult.data?.filter(
+      const newUsersToday = nonAdminUsers.filter(
         u => new Date(u.created_at) >= today
-      ).length || 0;
-      const threadsToday = threadsResult.data?.filter(
+      ).length;
+      const threadsToday = nonAdminThreads.filter(
         t => new Date(t.created_at) >= today
-      ).length || 0;
-      const newSubscriptionsToday = subscriptionsResult.data?.filter(
+      ).length;
+      const newSubscriptionsToday = nonAdminSubscriptions.filter(
         s => s.subscription_status === 'active' && new Date(s.updated_at) >= today
-      ).length || 0;
+      ).length;
 
       const currentMRR = activeSubscriptions * SUBSCRIPTION_PRICE;
       const projectedARR = currentMRR * 12;
@@ -167,20 +181,20 @@ export default function AdminAnalytics() {
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
 
-        const usersOnDay = usersResult.data?.filter(u => {
+        const usersOnDay = nonAdminUsers.filter(u => {
           const created = new Date(u.created_at);
           return created >= dayStart && created <= dayEnd;
-        }).length || 0;
+        }).length;
 
-        const threadsOnDay = threadsResult.data?.filter(t => {
+        const threadsOnDay = nonAdminThreads.filter(t => {
           const created = new Date(t.created_at);
           return created >= dayStart && created <= dayEnd;
-        }).length || 0;
+        }).length;
 
-        const subscriptionsOnDay = subscriptionsResult.data?.filter(s => {
+        const subscriptionsOnDay = nonAdminSubscriptions.filter(s => {
           const updated = new Date(s.updated_at);
           return s.subscription_status === 'active' && updated >= dayStart && updated <= dayEnd;
-        }).length || 0;
+        }).length;
 
         return {
           date: format(date, 'MMM dd'),
@@ -198,15 +212,15 @@ export default function AdminAnalytics() {
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
 
-        cumulativeUsers += usersResult.data?.filter(u => {
+        cumulativeUsers += nonAdminUsers.filter(u => {
           const created = new Date(u.created_at);
           return created >= dayStart && created <= dayEnd;
-        }).length || 0;
+        }).length;
 
-        cumulativeSubscriptions += subscriptionsResult.data?.filter(s => {
+        cumulativeSubscriptions += nonAdminSubscriptions.filter(s => {
           const updated = new Date(s.updated_at);
           return s.subscription_status === 'active' && updated >= dayStart && updated <= dayEnd;
-        }).length || 0;
+        }).length;
 
         const rate = cumulativeUsers > 0 ? (cumulativeSubscriptions / cumulativeUsers) * 100 : 0;
 
@@ -223,10 +237,10 @@ export default function AdminAnalytics() {
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
 
-        const newSubs = subscriptionsResult.data?.filter(s => {
+        const newSubs = nonAdminSubscriptions.filter(s => {
           const updated = new Date(s.updated_at);
           return s.subscription_status === 'active' && updated >= dayStart && updated <= dayEnd;
-        }).length || 0;
+        }).length;
 
         runningMRR += newSubs * SUBSCRIPTION_PRICE;
 
@@ -240,7 +254,7 @@ export default function AdminAnalytics() {
       setRevenueData(revenueTrend);
 
       const platformCounts: Record<string, number> = {};
-      platformResult.data?.forEach(t => {
+      nonAdminPlatformData.forEach(t => {
         const platform = t.platform || 'unknown';
         platformCounts[platform] = (platformCounts[platform] || 0) + 1;
       });
