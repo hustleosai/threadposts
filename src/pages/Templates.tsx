@@ -97,12 +97,16 @@ const sampleTemplates: Template[] = [
 export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>(sampleTemplates);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { subscribed, session } = useAuth();
+  const [hasFetched, setHasFetched] = useState(false);
+  const { subscribed, checkingSubscription, session } = useAuth();
   const { isAdmin } = useIsAdmin();
 
   useEffect(() => {
-    fetchTemplates();
-  }, []);
+    if (!hasFetched) {
+      fetchTemplates();
+      setHasFetched(true);
+    }
+  }, [hasFetched]);
 
   const fetchTemplates = async () => {
     const { data, error } = await supabase
@@ -150,7 +154,8 @@ export default function Templates() {
   const categories = Array.from(new Set(templates.map(t => t.category)));
 
   // Show paywall for non-subscribed users (admins always have access)
-  if (!subscribed && !isAdmin) {
+  // Wait until subscription check is complete to avoid flash of content
+  if (!checkingSubscription && !subscribed && !isAdmin) {
     return (
       <DashboardLayout>
         <div className="space-y-8">

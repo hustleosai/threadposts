@@ -111,12 +111,17 @@ export default function Images() {
   const [sortByVirality, setSortByVirality] = useState(false);
   const [trendingPeriod, setTrendingPeriod] = useState<TrendingPeriod>('all');
 
+  const [hasFetched, setHasFetched] = useState(false);
+
   useEffect(() => {
-    fetchImages();
+    if (!hasFetched) {
+      fetchImages();
+      setHasFetched(true);
+    }
     if (user) {
       fetchUserVotes();
     }
-  }, [user]);
+  }, [user, hasFetched]);
 
   useEffect(() => {
     if (sortByVirality && trendingPeriod !== 'all') {
