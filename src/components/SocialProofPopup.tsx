@@ -86,110 +86,53 @@ export function SocialProofPopup() {
   const [signup, setSignup] = useState<SignupData | null>(null);
   const [isExiting, setIsExiting] = useState(false);
   const [realSignups, setRealSignups] = useState<SignupData[]>([]);
-  const [realSignupIndex, setRealSignupIndex] = useState(0);
 
-  // Fetch recent real signups from the database
+  // Fetch the Detroit, Michigan user only (show once)
   useEffect(() => {
-    const fetchRecentSignups = async () => {
+    const fetchDetroitUser = async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('full_name, created_at, location')
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .eq('location', 'Detroit, Michigan')
+        .limit(1)
+        .single();
 
-      if (!error && data) {
-        const signups: SignupData[] = data
-          .filter(profile => profile.full_name)
-          .map(profile => {
-            // Use real location if available, otherwise generate region-appropriate one
-            const location = profile.location || generateRandomSignup().location;
-            return {
-              name: profile.full_name!.split(' ')[0],
-              location,
-              time: getTimeAgo(new Date(profile.created_at)),
-              isReal: true
-            };
-          });
-        setRealSignups(signups);
+      if (!error && data && data.full_name) {
+        const signup: SignupData = {
+          name: data.full_name.split(' ')[0],
+          location: data.location!,
+          time: getTimeAgo(new Date(data.created_at)),
+          isReal: true
+        };
+        setRealSignups([signup]);
       }
     };
 
-    fetchRecentSignups();
-
-    // Subscribe to real-time new signups
-    const channel = supabase
-      .channel('signup-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'profiles'
-        },
-        (payload) => {
-          const newProfile = payload.new as { full_name?: string; created_at: string; location?: string };
-          if (newProfile.full_name) {
-            const newSignup: SignupData = {
-              name: newProfile.full_name.split(' ')[0],
-              location: newProfile.location || generateRandomSignup().location,
-              time: 'just now',
-              isReal: true
-            };
-            setRealSignups(prev => [newSignup, ...prev.slice(0, 9)]);
-            setSignup(newSignup);
-            setIsExiting(false);
-            setIsVisible(true);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    fetchDetroitUser();
   }, []);
 
+  // Show the Detroit user popup once after initial delay
   useEffect(() => {
+    if (realSignups.length === 0) return;
+    
     const initialDelay = Math.random() * 5000 + 5000;
     
-    let showTimeout: NodeJS.Timeout;
-    let hideTimeout: NodeJS.Timeout;
-    let intervalId: NodeJS.Timeout;
-
-    const showPopup = () => {
-      let nextSignup: SignupData;
-      
-      if (realSignups.length > 0 && Math.random() > 0.3) {
-        nextSignup = realSignups[realSignupIndex % realSignups.length];
-        setRealSignupIndex(prev => prev + 1);
-      } else {
-        nextSignup = generateRandomSignup();
-      }
-      
-      setSignup(nextSignup);
+    const showTimeout = setTimeout(() => {
+      setSignup(realSignups[0]);
       setIsExiting(false);
       setIsVisible(true);
       
-      hideTimeout = setTimeout(() => {
+      // Auto-hide after 4 seconds
+      setTimeout(() => {
         setIsExiting(true);
         setTimeout(() => setIsVisible(false), 300);
       }, 4000);
-    };
-
-    showTimeout = setTimeout(() => {
-      showPopup();
-      
-      intervalId = setInterval(() => {
-        showPopup();
-      }, Math.random() * 10000 + 15000);
     }, initialDelay);
 
     return () => {
       clearTimeout(showTimeout);
-      clearTimeout(hideTimeout);
-      clearInterval(intervalId);
     };
-  }, [realSignups, realSignupIndex]);
+  }, [realSignups]);
 
   const handleClose = () => {
     setIsExiting(true);
