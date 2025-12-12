@@ -61,6 +61,16 @@ export default function AdminAnalytics() {
     fetchAnalytics();
   }, [dateRange]);
 
+  // Listen for user deletion events to refresh analytics
+  useEffect(() => {
+    const handleUserDeleted = () => {
+      fetchAnalytics();
+    };
+    
+    window.addEventListener('user-deleted', handleUserDeleted);
+    return () => window.removeEventListener('user-deleted', handleUserDeleted);
+  }, []);
+
   const fetchAnalytics = async () => {
     setLoading(true);
     const days = parseInt(dateRange);
