@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +15,21 @@ const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long');
 
+// Fetch user's location using IP geolocation
+async function getUserLocation(): Promise<string | null> {
+  try {
+    const response = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.city && data.country_name) {
+      return `${data.city}, ${data.country_name}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export default function Auth() {
   const navigate = useNavigate();
   const { signIn, signUp, user } = useAuth();
@@ -21,6 +37,12 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [userLocation, setUserLocation] = useState<string | null>(null);
+
+  // Fetch location on component mount
+  useEffect(() => {
+    getUserLocation().then(setUserLocation);
+  }, []);
 
   if (user) {
     navigate('/dashboard');
@@ -68,16 +90,28 @@ export default function Auth() {
 
     setLoading(true);
     const { error } = await signUp(email, password, fullName);
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       if (error.message.includes('already registered')) {
         toast.error('This email is already registered. Please sign in instead.');
       } else {
         toast.error(error.message);
       }
     } else {
-      toast.success('Account created! Welcome to ThreadMaster.');
+      // Update profile with location after successful signup
+      if (userLocation) {
+        // Get the newly created user's session
+        const { data: { user: newUser } } = await supabase.auth.getUser();
+        if (newUser) {
+          await supabase
+            .from('profiles')
+            .update({ location: userLocation })
+            .eq('user_id', newUser.id);
+        }
+      }
+      setLoading(false);
+      toast.success('Account created! Welcome to ThreadPosts.');
       navigate('/dashboard');
     }
   };
