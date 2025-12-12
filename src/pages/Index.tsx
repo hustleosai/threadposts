@@ -72,7 +72,8 @@ function useCountUp(end: number, duration: number = 2000, startOnView: boolean =
     if (!hasFinished || !continuousIncrement) return;
 
     const interval = setInterval(() => {
-      setCount(prev => prev + 1);
+      const increment = Math.floor(Math.random() * 3) + 1; // Random increment of 1, 2, or 3
+      setCount(prev => prev + increment);
     }, Math.random() * 5000 + 8000); // Random interval between 8-13 seconds
 
     return () => clearInterval(interval);
