@@ -1,27 +1,54 @@
 import { useState, useEffect } from 'react';
-import { X, UserPlus } from 'lucide-react';
+import { X, UserPlus, BadgeCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
-// Sample names and locations for realistic social proof (fallback)
-const firstNames = [
-  'Sarah', 'Michael', 'Emma', 'James', 'Olivia', 'William', 'Sophia', 'Benjamin',
-  'Isabella', 'Lucas', 'Mia', 'Henry', 'Charlotte', 'Alexander', 'Amelia', 'Daniel',
-  'Harper', 'Matthew', 'Evelyn', 'David', 'Abigail', 'Joseph', 'Emily', 'Samuel',
-  'Madison', 'Christopher', 'Elizabeth', 'Andrew', 'Sofia', 'Joshua', 'Avery', 'Ryan'
-];
+// Region-specific names for realistic social proof
+const namesByRegion: Record<string, string[]> = {
+  'USA': ['Sarah', 'Michael', 'Emma', 'James', 'Olivia', 'William', 'Sophia', 'Benjamin', 'Isabella', 'Lucas', 'Mia', 'Henry', 'Charlotte', 'Alexander', 'Amelia', 'Daniel', 'Harper', 'Matthew', 'Evelyn', 'David'],
+  'UK': ['Oliver', 'George', 'Harry', 'Jack', 'Charlie', 'Thomas', 'Oscar', 'William', 'Emily', 'Poppy', 'Ava', 'Isabella', 'Sophia', 'Mia', 'Amelia', 'Jessica', 'Lily', 'Sophie', 'Grace', 'Evie'],
+  'Canada': ['Liam', 'Noah', 'Oliver', 'William', 'Benjamin', 'Lucas', 'Emma', 'Olivia', 'Charlotte', 'Amelia', 'Sophia', 'Ava', 'Mia', 'Isabella', 'Evelyn', 'Harper', 'Camila', 'Aria', 'Luna', 'Chloe'],
+  'Australia': ['Oliver', 'William', 'Jack', 'Noah', 'Thomas', 'James', 'Leo', 'Charlie', 'Charlotte', 'Olivia', 'Mia', 'Amelia', 'Isla', 'Ava', 'Grace', 'Willow', 'Chloe', 'Harper', 'Ella', 'Sophie'],
+  'Germany': ['Ben', 'Leon', 'Paul', 'Finn', 'Elias', 'Felix', 'Noah', 'Luis', 'Emma', 'Mia', 'Hannah', 'Sofia', 'Anna', 'Emilia', 'Marie', 'Lena', 'Leonie', 'Lea', 'Johanna', 'Clara'],
+  'France': ['Gabriel', 'Léo', 'Raphaël', 'Arthur', 'Louis', 'Lucas', 'Adam', 'Jules', 'Emma', 'Louise', 'Jade', 'Alice', 'Chloé', 'Lina', 'Mila', 'Léa', 'Manon', 'Rose', 'Anna', 'Inès'],
+  'Netherlands': ['Noah', 'Sem', 'Liam', 'Lucas', 'Daan', 'Finn', 'Levi', 'Luuk', 'Emma', 'Julia', 'Mila', 'Tessa', 'Sophie', 'Zoë', 'Sara', 'Anna', 'Noor', 'Saar', 'Lotte', 'Eva'],
+  'UAE': ['Mohammed', 'Ahmed', 'Ali', 'Omar', 'Khalid', 'Rashid', 'Hassan', 'Youssef', 'Fatima', 'Maryam', 'Aisha', 'Sara', 'Layla', 'Noor', 'Hana', 'Zara', 'Amira', 'Dana', 'Reem', 'Lina'],
+  'Singapore': ['Ryan', 'Ethan', 'Lucas', 'Jayden', 'Caleb', 'Dylan', 'Ian', 'Asher', 'Chloe', 'Sophie', 'Emma', 'Olivia', 'Charlotte', 'Mia', 'Emily', 'Zoe', 'Ava', 'Isla', 'Grace', 'Amelia'],
+  'Japan': ['Haruto', 'Yuto', 'Sota', 'Yuki', 'Hayato', 'Haruki', 'Ryusei', 'Kota', 'Himari', 'Hina', 'Yua', 'Sakura', 'Ichika', 'Akari', 'Sara', 'Yui', 'Rio', 'Mio', 'Koharu', 'Mei'],
+  'Default': ['Alex', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Sam', 'Jamie', 'Avery', 'Quinn', 'Skyler', 'Peyton', 'Hayden', 'Emery', 'Finley', 'Reese', 'Rowan', 'Eden', 'Blake', 'Sage']
+};
 
-const locations = [
-  'New York, USA', 'London, UK', 'Toronto, Canada', 'Sydney, Australia',
-  'Berlin, Germany', 'Paris, France', 'Amsterdam, Netherlands', 'Dubai, UAE',
-  'Singapore', 'Tokyo, Japan', 'Los Angeles, USA', 'Chicago, USA',
-  'Miami, USA', 'Seattle, USA', 'Austin, USA', 'Denver, USA',
-  'Boston, USA', 'San Francisco, USA', 'Vancouver, Canada', 'Melbourne, Australia'
-];
+const locationsByRegion: Record<string, string[]> = {
+  'USA': ['New York, USA', 'Los Angeles, USA', 'Chicago, USA', 'Miami, USA', 'Seattle, USA', 'Austin, USA', 'Denver, USA', 'Boston, USA', 'San Francisco, USA', 'Phoenix, USA'],
+  'UK': ['London, UK', 'Manchester, UK', 'Birmingham, UK', 'Edinburgh, UK', 'Bristol, UK', 'Liverpool, UK', 'Leeds, UK', 'Glasgow, UK'],
+  'Canada': ['Toronto, Canada', 'Vancouver, Canada', 'Montreal, Canada', 'Calgary, Canada', 'Ottawa, Canada', 'Edmonton, Canada'],
+  'Australia': ['Sydney, Australia', 'Melbourne, Australia', 'Brisbane, Australia', 'Perth, Australia', 'Adelaide, Australia'],
+  'Germany': ['Berlin, Germany', 'Munich, Germany', 'Hamburg, Germany', 'Frankfurt, Germany', 'Cologne, Germany'],
+  'France': ['Paris, France', 'Lyon, France', 'Marseille, France', 'Toulouse, France', 'Nice, France'],
+  'Netherlands': ['Amsterdam, Netherlands', 'Rotterdam, Netherlands', 'The Hague, Netherlands', 'Utrecht, Netherlands'],
+  'UAE': ['Dubai, UAE', 'Abu Dhabi, UAE', 'Sharjah, UAE'],
+  'Singapore': ['Singapore'],
+  'Japan': ['Tokyo, Japan', 'Osaka, Japan', 'Kyoto, Japan', 'Yokohama, Japan', 'Nagoya, Japan']
+};
+
+// Get region from location string
+function getRegionFromLocation(location: string): string {
+  if (location.includes('USA')) return 'USA';
+  if (location.includes('UK')) return 'UK';
+  if (location.includes('Canada')) return 'Canada';
+  if (location.includes('Australia')) return 'Australia';
+  if (location.includes('Germany')) return 'Germany';
+  if (location.includes('France')) return 'France';
+  if (location.includes('Netherlands')) return 'Netherlands';
+  if (location.includes('UAE')) return 'UAE';
+  if (location.includes('Singapore')) return 'Singapore';
+  if (location.includes('Japan')) return 'Japan';
+  return 'Default';
+}
 
 interface SignupData {
   name: string;
-  location?: string;
+  location: string;
   time: string;
   isReal: boolean;
 }
@@ -38,9 +65,16 @@ function getTimeAgo(date: Date): string {
 }
 
 function generateRandomSignup(): SignupData {
+  // Pick a random region
+  const regions = Object.keys(locationsByRegion);
+  const randomRegion = regions[Math.floor(Math.random() * regions.length)];
+  const locations = locationsByRegion[randomRegion];
+  const names = namesByRegion[randomRegion] || namesByRegion['Default'];
+  
   const timeOptions = ['just now', '2 minutes ago', '5 minutes ago', '8 minutes ago', '12 minutes ago'];
+  
   return {
-    name: firstNames[Math.floor(Math.random() * firstNames.length)],
+    name: names[Math.floor(Math.random() * names.length)],
     location: locations[Math.floor(Math.random() * locations.length)],
     time: timeOptions[Math.floor(Math.random() * timeOptions.length)],
     isReal: false
@@ -59,19 +93,23 @@ export function SocialProofPopup() {
     const fetchRecentSignups = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, created_at')
+        .select('full_name, created_at, location')
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (!error && data) {
         const signups: SignupData[] = data
-          .filter(profile => profile.full_name) // Only include profiles with names
-          .map(profile => ({
-            name: profile.full_name!.split(' ')[0], // Use first name only for privacy
-            location: locations[Math.floor(Math.random() * locations.length)], // Random location for privacy
-            time: getTimeAgo(new Date(profile.created_at)),
-            isReal: true
-          }));
+          .filter(profile => profile.full_name)
+          .map(profile => {
+            // Use real location if available, otherwise generate region-appropriate one
+            const location = profile.location || generateRandomSignup().location;
+            return {
+              name: profile.full_name!.split(' ')[0],
+              location,
+              time: getTimeAgo(new Date(profile.created_at)),
+              isReal: true
+            };
+          });
         setRealSignups(signups);
       }
     };
@@ -89,15 +127,14 @@ export function SocialProofPopup() {
           table: 'profiles'
         },
         (payload) => {
-          const newProfile = payload.new as { full_name?: string; created_at: string };
+          const newProfile = payload.new as { full_name?: string; created_at: string; location?: string };
           if (newProfile.full_name) {
             const newSignup: SignupData = {
               name: newProfile.full_name.split(' ')[0],
-              location: locations[Math.floor(Math.random() * locations.length)],
+              location: newProfile.location || generateRandomSignup().location,
               time: 'just now',
               isReal: true
             };
-            // Add to front of real signups and show immediately
             setRealSignups(prev => [newSignup, ...prev.slice(0, 9)]);
             setSignup(newSignup);
             setIsExiting(false);
@@ -113,7 +150,6 @@ export function SocialProofPopup() {
   }, []);
 
   useEffect(() => {
-    // Initial delay before showing first popup (5-10 seconds)
     const initialDelay = Math.random() * 5000 + 5000;
     
     let showTimeout: NodeJS.Timeout;
@@ -121,15 +157,12 @@ export function SocialProofPopup() {
     let intervalId: NodeJS.Timeout;
 
     const showPopup = () => {
-      // Alternate between real and fake signups, prioritizing real ones
       let nextSignup: SignupData;
       
       if (realSignups.length > 0 && Math.random() > 0.3) {
-        // 70% chance to show real signup if available
         nextSignup = realSignups[realSignupIndex % realSignups.length];
         setRealSignupIndex(prev => prev + 1);
       } else {
-        // 30% chance or fallback to fake signup
         nextSignup = generateRandomSignup();
       }
       
@@ -137,18 +170,15 @@ export function SocialProofPopup() {
       setIsExiting(false);
       setIsVisible(true);
       
-      // Hide after 4 seconds
       hideTimeout = setTimeout(() => {
         setIsExiting(true);
         setTimeout(() => setIsVisible(false), 300);
       }, 4000);
     };
 
-    // Show first popup after initial delay
     showTimeout = setTimeout(() => {
       showPopup();
       
-      // Then show every 15-25 seconds
       intervalId = setInterval(() => {
         showPopup();
       }, Math.random() * 10000 + 15000);
@@ -191,9 +221,14 @@ export function SocialProofPopup() {
         </div>
         
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">
-            {signup.name}{signup.location ? ` from ${signup.location}` : ''}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-medium text-foreground">
+              {signup.name} from {signup.location}
+            </p>
+            {signup.isReal && (
+              <BadgeCheck className="h-4 w-4 text-primary flex-shrink-0" />
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             just signed up for ThreadPosts
           </p>
