@@ -15,24 +15,37 @@ const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 const nameSchema = z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long');
 
+interface GeoLocationData {
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 // Fetch user's location using IP geolocation
-async function getUserLocation(): Promise<string | null> {
+async function getUserLocation(): Promise<GeoLocationData> {
   try {
     const response = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) });
-    if (!response.ok) return null;
+    if (!response.ok) return { location: null, latitude: null, longitude: null };
     const data = await response.json();
+    
+    let location: string | null = null;
     
     // For US addresses, use "City, State" format
     if (data.country_code === 'US' && data.city && data.region) {
-      return `${data.city}, ${data.region}`;
+      location = `${data.city}, ${data.region}`;
     }
     // For other countries, use "City, Country" format
-    if (data.city && data.country_name) {
-      return `${data.city}, ${data.country_name}`;
+    else if (data.city && data.country_name) {
+      location = `${data.city}, ${data.country_name}`;
     }
-    return null;
+    
+    return {
+      location,
+      latitude: data.latitude || null,
+      longitude: data.longitude || null,
+    };
   } catch {
-    return null;
+    return { location: null, latitude: null, longitude: null };
   }
 }
 
@@ -43,11 +56,11 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [userLocation, setUserLocation] = useState<string | null>(null);
+  const [geoData, setGeoData] = useState<GeoLocationData>({ location: null, latitude: null, longitude: null });
 
   // Fetch location on component mount
   useEffect(() => {
-    getUserLocation().then(setUserLocation);
+    getUserLocation().then(setGeoData);
   }, []);
 
   if (user) {
@@ -105,14 +118,18 @@ export default function Auth() {
         toast.error(error.message);
       }
     } else {
-      // Update profile with location after successful signup
-      if (userLocation) {
+      // Update profile with location and coordinates after successful signup
+      if (geoData.location || geoData.latitude) {
         // Get the newly created user's session
         const { data: { user: newUser } } = await supabase.auth.getUser();
         if (newUser) {
           await supabase
             .from('profiles')
-            .update({ location: userLocation })
+            .update({ 
+              location: geoData.location,
+              latitude: geoData.latitude,
+              longitude: geoData.longitude,
+            })
             .eq('user_id', newUser.id);
         }
       }
