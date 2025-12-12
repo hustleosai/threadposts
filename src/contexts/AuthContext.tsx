@@ -25,8 +25,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
 
-  const checkSubscription = useCallback(async () => {
-    if (!session?.access_token) {
+  const checkSubscription = useCallback(async (retryCount = 0) => {
+    // Get fresh session to avoid stale token issues during refresh
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    
+    if (!currentSession?.access_token) {
       setSubscribed(false);
       setSubscriptionEnd(null);
       return;
@@ -36,11 +39,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${currentSession.access_token}`,
         },
       });
 
       if (error) {
+        // Handle 401 errors during token refresh - retry once after short delay
+        const errorMessage = error.message || '';
+        if ((errorMessage.includes('401') || errorMessage.includes('Invalid JWT')) && retryCount < 1) {
+          console.log('Token may be refreshing, retrying subscription check...');
+          setTimeout(() => checkSubscription(retryCount + 1), 1000);
+          return;
+        }
         console.error('Error checking subscription:', error);
         setSubscribed(false);
         setSubscriptionEnd(null);
@@ -55,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setCheckingSubscription(false);
     }
-  }, [session?.access_token]);
+  }, []);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
