@@ -90,10 +90,63 @@ const getStats = (threadsGenerated: number, happyCreators: number) => [
 ];
 
 type StatType = { value: number; label: string; suffix: string; icon: typeof FileText };
-function StatCard({ stat, index }: { stat: StatType, index: number }) {
-  // Enable continuous increment for threads and creators stats
-  const shouldContinuousIncrement = stat.label === 'Threads Generated' || stat.label === 'Happy Creators';
-  const { count, ref } = useCountUp(stat.value, 2000, true, shouldContinuousIncrement);
+
+// Shared animated count hook for syncing multiple displays
+function useSharedCountUp(end: number, duration: number = 2000) {
+  const [count, setCount] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [hasFinished, setHasFinished] = useState(false);
+
+  const startAnimation = () => {
+    if (!hasStarted) setHasStarted(true);
+  };
+
+  // Initial count-up animation
+  useEffect(() => {
+    if (!hasStarted || hasFinished) return;
+
+    let startTime: number;
+    let animationFrame: number;
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      setCount(Math.floor(easeOutQuart * end));
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      } else {
+        setHasFinished(true);
+      }
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [end, duration, hasStarted, hasFinished]);
+
+  // Continuous slow increment after initial animation
+  useEffect(() => {
+    if (!hasFinished) return;
+
+    const interval = setInterval(() => {
+      const increment = Math.floor(Math.random() * 3) + 1;
+      setCount(prev => prev + increment);
+    }, Math.random() * 5000 + 8000);
+
+    return () => clearInterval(interval);
+  }, [hasFinished]);
+
+  return { count, startAnimation };
+}
+function StatCard({ stat, index, sharedCount }: { stat: StatType, index: number, sharedCount?: number }) {
+  // Use shared count for Happy Creators, otherwise use local animation
+  const shouldContinuousIncrement = stat.label === 'Threads Generated';
+  const { count: localCount, ref } = useCountUp(stat.value, 2000, true, shouldContinuousIncrement);
+  
+  // Use shared count for Happy Creators if provided
+  const count = stat.label === 'Happy Creators' && sharedCount !== undefined ? sharedCount : localCount;
+  
   const Icon = stat.icon;
   const [isPulsing, setIsPulsing] = useState(false);
   const prevCountRef = useRef(count);
@@ -250,9 +303,18 @@ export default function Index() {
   const [selectedExample, setSelectedExample] = useState('twitter');
   const { data: platformStats } = usePlatformStats();
   
+  // Shared animated count for Happy Creators - syncs hero badge and stats section
+  const creatorsBaseValue = platformStats?.happyCreators ?? 12394;
+  const { count: sharedCreatorsCount, startAnimation: startCreatorsAnimation } = useSharedCountUp(creatorsBaseValue, 2000);
+  
+  // Start the creators animation on mount
+  useEffect(() => {
+    startCreatorsAnimation();
+  }, []);
+  
   const stats = getStats(
-    platformStats?.threadsGenerated ?? 500000,
-    platformStats?.happyCreators ?? 10000
+    platformStats?.threadsGenerated ?? 523847,
+    platformStats?.happyCreators ?? 12394
   );
   
   // Track affiliate referrals when users arrive via ?ref= links
@@ -292,7 +354,7 @@ export default function Index() {
         <div className="container mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8">
             <Star className="h-4 w-4 text-primary" />
-            <span className="text-sm text-primary">Trusted by {(platformStats?.happyCreators ?? 10000).toLocaleString()}+ creators</span>
+            <span className="text-sm text-primary">Trusted by {sharedCreatorsCount.toLocaleString()}+ creators</span>
           </div>
           
           <h1 className="text-5xl md:text-7xl font-display font-bold mb-6 animate-fade-in">
@@ -338,7 +400,7 @@ export default function Index() {
         <div className="container mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <StatCard key={stat.label} stat={stat} index={index} />
+              <StatCard key={stat.label} stat={stat} index={index} sharedCount={stat.label === 'Happy Creators' ? sharedCreatorsCount : undefined} />
             ))}
           </div>
         </div>
