@@ -214,20 +214,30 @@ export default function Admin() {
     }
 
     try {
-      // Delete profile (this will cascade to related data)
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userProfileId);
+      // Call the admin delete user edge function to properly delete from auth.users
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId },
+        headers: {
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
+      });
 
-      if (error) throw error;
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to delete user');
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
       setUsers(users.filter(u => u.id !== userProfileId));
       // Trigger analytics refresh event
       window.dispatchEvent(new CustomEvent('user-deleted'));
-      toast.success('User deleted');
-    } catch (error) {
+      toast.success('User deleted successfully');
+    } catch (error: any) {
       console.error('Error deleting user:', error);
-      toast.error('Failed to delete user');
+      toast.error(error.message || 'Failed to delete user');
     }
   };
 
