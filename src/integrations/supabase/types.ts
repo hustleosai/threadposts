@@ -262,6 +262,48 @@ export type Database = {
           },
         ]
       }
+      page_visits: {
+        Row: {
+          city: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          latitude: number | null
+          longitude: number | null
+          page_path: string | null
+          region: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          page_path?: string | null
+          region?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          page_path?: string | null
+          region?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -269,7 +311,9 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          latitude: number | null
           location: string | null
+          longitude: number | null
           updated_at: string
           user_id: string
         }
@@ -279,7 +323,9 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           updated_at?: string
           user_id: string
         }
@@ -289,7 +335,9 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           updated_at?: string
           user_id?: string
         }

@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Users, MessageSquare, TrendingUp, CreditCard, DollarSign, UserPlus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
+import UserLocationMap from './UserLocationMap';
 
 interface DailyStats {
   date: string;
@@ -389,6 +390,9 @@ export default function AdminAnalytics() {
         </Card>
 
       </div>
+
+      {/* User Location Map */}
+      <UserLocationMap />
 
       {/* Revenue Analytics */}
       <Card className="bg-card border-border">

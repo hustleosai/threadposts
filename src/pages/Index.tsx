@@ -5,6 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useAuth } from '@/contexts/AuthContext';
 import { useAffiliateTracking } from '@/hooks/useAffiliateTracking';
 import { usePlatformStats } from '@/hooks/usePlatformStats';
+import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { SocialProofPopup } from '@/components/SocialProofPopup';
 import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash, Users, FileText, Globe, MousePointerClick, Layers, Wand2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
@@ -320,6 +321,9 @@ export default function Index() {
   
   // Track affiliate referrals when users arrive via ?ref= links
   useAffiliateTracking();
+  
+  // Track all page visits for analytics
+  useVisitorTracking();
   return <div className="min-h-screen bg-background">
       {/* Social Proof Popup */}
       <SocialProofPopup />
