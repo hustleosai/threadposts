@@ -207,6 +207,28 @@ export default function Admin() {
     }
   };
 
+  const deleteUser = async (userId: string, userProfileId: string) => {
+    if (userId === user?.id) {
+      toast.error("You cannot delete your own account");
+      return;
+    }
+
+    try {
+      // Delete profile (this will cascade to related data)
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userProfileId);
+
+      if (error) throw error;
+      setUsers(users.filter(u => u.id !== userProfileId));
+      toast.success('User deleted');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
     u.full_name?.toLowerCase().includes(userSearch.toLowerCase())
@@ -289,28 +311,39 @@ export default function Admin() {
                           {new Date(userProfile.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          {isUserAdmin(userProfile.user_id) ? (
+                          <div className="flex items-center gap-2">
+                            {isUserAdmin(userProfile.user_id) ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => revokeAdminRole(userProfile.user_id)}
+                                disabled={userProfile.user_id === user?.id}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <ShieldMinus className="h-4 w-4 mr-1" />
+                                Revoke Admin
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => grantAdminRole(userProfile.user_id)}
+                                className="text-primary hover:text-primary"
+                              >
+                                <ShieldPlus className="h-4 w-4 mr-1" />
+                                Grant Admin
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
-                              size="sm"
-                              onClick={() => revokeAdminRole(userProfile.user_id)}
+                              size="icon"
+                              onClick={() => deleteUser(userProfile.user_id, userProfile.id)}
                               disabled={userProfile.user_id === user?.id}
                               className="text-destructive hover:text-destructive"
                             >
-                              <ShieldMinus className="h-4 w-4 mr-1" />
-                              Revoke Admin
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => grantAdminRole(userProfile.user_id)}
-                              className="text-primary hover:text-primary"
-                            >
-                              <ShieldPlus className="h-4 w-4 mr-1" />
-                              Grant Admin
-                            </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
