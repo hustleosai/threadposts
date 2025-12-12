@@ -147,7 +147,7 @@ export default function Auth() {
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Sparkles className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-display font-bold">ThreadMaster</span>
+            <span className="text-2xl font-display font-bold">ThreadPosts</span>
           </div>
           <CardTitle className="text-2xl font-display">Welcome</CardTitle>
           <CardDescription>Sign in or create an account to get started</CardDescription>
