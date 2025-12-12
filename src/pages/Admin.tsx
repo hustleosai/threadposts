@@ -222,6 +222,8 @@ export default function Admin() {
 
       if (error) throw error;
       setUsers(users.filter(u => u.id !== userProfileId));
+      // Trigger analytics refresh event
+      window.dispatchEvent(new CustomEvent('user-deleted'));
       toast.success('User deleted');
     } catch (error) {
       console.error('Error deleting user:', error);
