@@ -21,6 +21,12 @@ async function getUserLocation(): Promise<string | null> {
     const response = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(5000) });
     if (!response.ok) return null;
     const data = await response.json();
+    
+    // For US addresses, use "City, State" format
+    if (data.country_code === 'US' && data.city && data.region) {
+      return `${data.city}, ${data.region}`;
+    }
+    // For other countries, use "City, Country" format
     if (data.city && data.country_name) {
       return `${data.city}, ${data.country_name}`;
     }
