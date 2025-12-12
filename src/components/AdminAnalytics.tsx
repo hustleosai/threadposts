@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -57,22 +57,8 @@ export default function AdminAnalytics() {
   // Subscription price in dollars
   const SUBSCRIPTION_PRICE = 5;
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [dateRange]);
-
-  // Listen for user deletion events to refresh analytics
-  useEffect(() => {
-    const handleUserDeleted = () => {
-      fetchAnalytics();
-    };
-    
-    window.addEventListener('user-deleted', handleUserDeleted);
-    return () => window.removeEventListener('user-deleted', handleUserDeleted);
-  }, []);
-
-  const fetchAnalytics = async () => {
-    setLoading(true);
+  // Memoized fetch function for realtime updates
+  const fetchAnalyticsQuiet = useCallback(async () => {
     const days = parseInt(dateRange);
     const currentStart = startOfDay(subDays(new Date(), days));
     const currentEnd = endOfDay(new Date());
@@ -80,7 +66,6 @@ export default function AdminAnalytics() {
     const previousEnd = endOfDay(subDays(new Date(), days + 1));
 
     try {
-      // Fetch all data in parallel
       const [
         usersResult,
         threadsResult,
@@ -95,13 +80,11 @@ export default function AdminAnalytics() {
         supabase.from('thread_history').select('platform'),
       ]);
 
-      // Helper to check if date is in range
       const isInRange = (dateStr: string, start: Date, end: Date) => {
         const date = new Date(dateStr);
         return date >= start && date <= end;
       };
 
-      // Current period stats
       const currentPeriodUsers = usersResult.data?.filter(u => isInRange(u.created_at, currentStart, currentEnd)).length || 0;
       const currentPeriodThreads = threadsResult.data?.filter(t => isInRange(t.created_at, currentStart, currentEnd)).length || 0;
       const currentPeriodSubs = subscriptionsResult.data?.filter(s => 
@@ -110,7 +93,6 @@ export default function AdminAnalytics() {
       const currentPeriodEarnings = earningsResult.data?.filter(e => isInRange(e.created_at, currentStart, currentEnd))
         .reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
-      // Previous period stats
       const previousPeriodUsers = usersResult.data?.filter(u => isInRange(u.created_at, previousStart, previousEnd)).length || 0;
       const previousPeriodThreads = threadsResult.data?.filter(t => isInRange(t.created_at, previousStart, previousEnd)).length || 0;
       const previousPeriodSubs = subscriptionsResult.data?.filter(s => 
@@ -119,13 +101,11 @@ export default function AdminAnalytics() {
       const previousPeriodEarnings = earningsResult.data?.filter(e => isInRange(e.created_at, previousStart, previousEnd))
         .reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
-      // Calculate growth percentages
       const calcGrowth = (current: number, previous: number) => {
         if (previous === 0) return current > 0 ? 100 : 0;
         return ((current - previous) / previous) * 100;
       };
 
-      // Calculate MRR for periods
       const currentPeriodMRR = currentPeriodSubs * SUBSCRIPTION_PRICE;
       const previousPeriodMRR = previousPeriodSubs * SUBSCRIPTION_PRICE;
 
@@ -143,7 +123,6 @@ export default function AdminAnalytics() {
         mrrGrowth: calcGrowth(currentPeriodMRR, previousPeriodMRR),
       });
 
-      // Calculate totals
       const totalUsers = usersResult.data?.length || 0;
       const totalThreads = threadsResult.data?.length || 0;
       const activeSubscriptions = subscriptionsResult.data?.filter(
@@ -154,10 +133,8 @@ export default function AdminAnalytics() {
       ).length || 0;
       const totalEarnings = earningsResult.data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
       
-      // Calculate conversion rate
       const conversionRate = totalUsers > 0 ? (totalPaidUsers / totalUsers) * 100 : 0;
 
-      // Calculate today's stats
       const today = startOfDay(new Date());
       const newUsersToday = usersResult.data?.filter(
         u => new Date(u.created_at) >= today
@@ -169,7 +146,6 @@ export default function AdminAnalytics() {
         s => s.subscription_status === 'active' && new Date(s.updated_at) >= today
       ).length || 0;
 
-      // Calculate MRR
       const currentMRR = activeSubscriptions * SUBSCRIPTION_PRICE;
       const projectedARR = currentMRR * 12;
 
@@ -186,7 +162,6 @@ export default function AdminAnalytics() {
         projectedARR,
       });
 
-      // Build daily stats for the chart
       const dateInterval = eachDayOfInterval({ start: currentStart, end: currentEnd });
       const dailyData: DailyStats[] = dateInterval.map(date => {
         const dayStart = startOfDay(date);
@@ -217,7 +192,6 @@ export default function AdminAnalytics() {
 
       setDailyStats(dailyData);
 
-      // Calculate cumulative conversion data
       let cumulativeUsers = 0;
       let cumulativeSubscriptions = 0;
       const conversionTrend = dateInterval.map(date => {
@@ -244,19 +218,16 @@ export default function AdminAnalytics() {
 
       setConversionData(conversionTrend);
 
-      // Calculate revenue trend data (cumulative MRR over time)
       let runningMRR = 0;
       const revenueTrend = dateInterval.map(date => {
         const dayStart = startOfDay(date);
         const dayEnd = endOfDay(date);
 
-        // New subscriptions add to MRR
         const newSubs = subscriptionsResult.data?.filter(s => {
           const updated = new Date(s.updated_at);
           return s.subscription_status === 'active' && updated >= dayStart && updated <= dayEnd;
         }).length || 0;
 
-        // Canceled subscriptions reduce MRR (simplified - in reality you'd track cancellations separately)
         runningMRR += newSubs * SUBSCRIPTION_PRICE;
 
         return {
@@ -268,7 +239,6 @@ export default function AdminAnalytics() {
 
       setRevenueData(revenueTrend);
 
-      // Calculate platform distribution
       const platformCounts: Record<string, number> = {};
       platformResult.data?.forEach(t => {
         const platform = t.platform || 'unknown';
@@ -283,10 +253,59 @@ export default function AdminAnalytics() {
       setPlatformStats(platformData);
     } catch (error) {
       console.error('Error fetching analytics:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [dateRange, SUBSCRIPTION_PRICE]);
+
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      setLoading(true);
+      await fetchAnalyticsQuiet();
+      setLoading(false);
+    };
+    loadAnalytics();
+  }, [fetchAnalyticsQuiet]);
+
+  // Subscribe to realtime updates for all analytics-related tables
+  useEffect(() => {
+    const channel = supabase
+      .channel('analytics-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => fetchAnalyticsQuiet()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'thread_history' },
+        () => fetchAnalyticsQuiet()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_billing' },
+        () => fetchAnalyticsQuiet()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'affiliate_earnings' },
+        () => fetchAnalyticsQuiet()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAnalyticsQuiet]);
+
+  // Listen for user deletion events (legacy support)
+  useEffect(() => {
+    const handleUserDeleted = () => {
+      fetchAnalyticsQuiet();
+    };
+    
+    window.addEventListener('user-deleted', handleUserDeleted);
+    return () => window.removeEventListener('user-deleted', handleUserDeleted);
+  }, [fetchAnalyticsQuiet]);
+
 
   if (loading) {
     return (
