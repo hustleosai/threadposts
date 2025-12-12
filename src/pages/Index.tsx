@@ -8,10 +8,11 @@ import { usePlatformStats } from '@/hooks/usePlatformStats';
 import { Sparkles, Zap, TrendingUp, Image, Layout, Clock, Check, Twitter, Linkedin, MessageCircle, ArrowRight, Star, Hash, Users, FileText, Globe, MousePointerClick, Layers, Wand2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
-// Animated counter hook
-function useCountUp(end: number, duration: number = 2000, startOnView: boolean = true) {
+// Animated counter hook with continuous slow increment
+function useCountUp(end: number, duration: number = 2000, startOnView: boolean = true, continuousIncrement: boolean = false) {
   const [count, setCount] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
+  const [hasFinished, setHasFinished] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,8 +40,9 @@ function useCountUp(end: number, duration: number = 2000, startOnView: boolean =
     return () => observer.disconnect();
   }, [hasStarted, startOnView]);
 
+  // Initial count-up animation
   useEffect(() => {
-    if (!hasStarted) return;
+    if (!hasStarted || hasFinished) return;
 
     let startTime: number;
     let animationFrame: number;
@@ -55,13 +57,26 @@ function useCountUp(end: number, duration: number = 2000, startOnView: boolean =
 
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
+      } else {
+        setHasFinished(true);
       }
     };
 
     animationFrame = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animationFrame);
-  }, [end, duration, hasStarted]);
+  }, [end, duration, hasStarted, hasFinished]);
+
+  // Continuous slow increment after initial animation
+  useEffect(() => {
+    if (!hasFinished || !continuousIncrement) return;
+
+    const interval = setInterval(() => {
+      setCount(prev => prev + 1);
+    }, Math.random() * 3000 + 2000); // Random interval between 2-5 seconds
+
+    return () => clearInterval(interval);
+  }, [hasFinished, continuousIncrement]);
 
   return { count, ref };
 }
@@ -75,7 +90,9 @@ const getStats = (threadsGenerated: number, happyCreators: number) => [
 
 type StatType = { value: number; label: string; suffix: string; icon: typeof FileText };
 function StatCard({ stat, index }: { stat: StatType, index: number }) {
-  const { count, ref } = useCountUp(stat.value, 2000);
+  // Enable continuous increment for threads and creators stats
+  const shouldContinuousIncrement = stat.label === 'Threads Generated' || stat.label === 'Happy Creators';
+  const { count, ref } = useCountUp(stat.value, 2000, true, shouldContinuousIncrement);
   const Icon = stat.icon;
   
   return (
