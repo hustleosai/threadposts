@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
-// Sample names and locations for realistic social proof
+// Sample names and locations for realistic social proof (fallback)
 const firstNames = [
   'Sarah', 'Michael', 'Emma', 'James', 'Olivia', 'William', 'Sophia', 'Benjamin',
   'Isabella', 'Lucas', 'Mia', 'Henry', 'Charlotte', 'Alexander', 'Amelia', 'Daniel',
@@ -18,21 +19,31 @@ const locations = [
   'Boston, USA', 'San Francisco, USA', 'Vancouver, Canada', 'Melbourne, Australia'
 ];
 
-const timeAgo = [
-  'just now', '2 minutes ago', '5 minutes ago', '8 minutes ago', '12 minutes ago'
-];
-
 interface SignupData {
   name: string;
-  location: string;
+  location?: string;
   time: string;
+  isReal: boolean;
+}
+
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  
+  if (seconds < 60) return 'just now';
+  if (seconds < 120) return '1 minute ago';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 7200) return '1 hour ago';
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  return 'recently';
 }
 
 function generateRandomSignup(): SignupData {
+  const timeOptions = ['just now', '2 minutes ago', '5 minutes ago', '8 minutes ago', '12 minutes ago'];
   return {
     name: firstNames[Math.floor(Math.random() * firstNames.length)],
     location: locations[Math.floor(Math.random() * locations.length)],
-    time: timeAgo[Math.floor(Math.random() * timeAgo.length)]
+    time: timeOptions[Math.floor(Math.random() * timeOptions.length)],
+    isReal: false
   };
 }
 
@@ -40,6 +51,66 @@ export function SocialProofPopup() {
   const [isVisible, setIsVisible] = useState(false);
   const [signup, setSignup] = useState<SignupData | null>(null);
   const [isExiting, setIsExiting] = useState(false);
+  const [realSignups, setRealSignups] = useState<SignupData[]>([]);
+  const [realSignupIndex, setRealSignupIndex] = useState(0);
+
+  // Fetch recent real signups from the database
+  useEffect(() => {
+    const fetchRecentSignups = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!error && data) {
+        const signups: SignupData[] = data
+          .filter(profile => profile.full_name) // Only include profiles with names
+          .map(profile => ({
+            name: profile.full_name!.split(' ')[0], // Use first name only for privacy
+            location: locations[Math.floor(Math.random() * locations.length)], // Random location for privacy
+            time: getTimeAgo(new Date(profile.created_at)),
+            isReal: true
+          }));
+        setRealSignups(signups);
+      }
+    };
+
+    fetchRecentSignups();
+
+    // Subscribe to real-time new signups
+    const channel = supabase
+      .channel('signup-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'profiles'
+        },
+        (payload) => {
+          const newProfile = payload.new as { full_name?: string; created_at: string };
+          if (newProfile.full_name) {
+            const newSignup: SignupData = {
+              name: newProfile.full_name.split(' ')[0],
+              location: locations[Math.floor(Math.random() * locations.length)],
+              time: 'just now',
+              isReal: true
+            };
+            // Add to front of real signups and show immediately
+            setRealSignups(prev => [newSignup, ...prev.slice(0, 9)]);
+            setSignup(newSignup);
+            setIsExiting(false);
+            setIsVisible(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     // Initial delay before showing first popup (5-10 seconds)
@@ -50,7 +121,19 @@ export function SocialProofPopup() {
     let intervalId: NodeJS.Timeout;
 
     const showPopup = () => {
-      setSignup(generateRandomSignup());
+      // Alternate between real and fake signups, prioritizing real ones
+      let nextSignup: SignupData;
+      
+      if (realSignups.length > 0 && Math.random() > 0.3) {
+        // 70% chance to show real signup if available
+        nextSignup = realSignups[realSignupIndex % realSignups.length];
+        setRealSignupIndex(prev => prev + 1);
+      } else {
+        // 30% chance or fallback to fake signup
+        nextSignup = generateRandomSignup();
+      }
+      
+      setSignup(nextSignup);
       setIsExiting(false);
       setIsVisible(true);
       
@@ -76,7 +159,7 @@ export function SocialProofPopup() {
       clearTimeout(hideTimeout);
       clearInterval(intervalId);
     };
-  }, []);
+  }, [realSignups, realSignupIndex]);
 
   const handleClose = () => {
     setIsExiting(true);
@@ -109,7 +192,7 @@ export function SocialProofPopup() {
         
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">
-            {signup.name} from {signup.location}
+            {signup.name}{signup.location ? ` from ${signup.location}` : ''}
           </p>
           <p className="text-sm text-muted-foreground">
             just signed up for ThreadPosts
