@@ -6,9 +6,9 @@ interface PlatformStats {
   happyCreators: number;
 }
 
-// Base values to start with
-const BASE_THREADS = 500000;
-const BASE_CREATORS = 10000;
+// Base values to start with (using realistic-looking numbers)
+const BASE_THREADS = 523847;
+const BASE_CREATORS = 12394;
 
 export function usePlatformStats() {
   return useQuery({
