@@ -23,7 +23,8 @@ import {
   Crown,
   CreditCard,
   Lock,
-  Zap
+  Zap,
+  Gift
 } from 'lucide-react';
 
 const FREE_GENERATION_LIMIT = 3;
@@ -57,31 +58,45 @@ export default function Dashboard() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [generationCount, setGenerationCount] = useState(0);
   const [loadingCount, setLoadingCount] = useState(true);
+  const [hasFreeAccess, setHasFreeAccess] = useState(false);
 
   const remainingGenerations = Math.max(0, FREE_GENERATION_LIMIT - generationCount);
-  const hasReachedLimit = !subscribed && !isAdmin && generationCount >= FREE_GENERATION_LIMIT;
+  const hasFullAccess = subscribed || isAdmin || hasFreeAccess;
+  const hasReachedLimit = !hasFullAccess && generationCount >= FREE_GENERATION_LIMIT;
 
-  // Fetch generation count
+  // Fetch generation count and free access status
   useEffect(() => {
-    async function fetchGenerationCount() {
+    async function fetchUserData() {
       if (!user?.id) return;
       
       try {
-        const { count, error } = await supabase
+        // Fetch generation count
+        const { count, error: countError } = await supabase
           .from('thread_history')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id);
 
-        if (error) throw error;
+        if (countError) throw countError;
         setGenerationCount(count || 0);
+
+        // Fetch free access status from profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('has_free_access')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!profileError && profile) {
+          setHasFreeAccess(profile.has_free_access || false);
+        }
       } catch (error) {
-        console.error('Error fetching generation count:', error);
+        console.error('Error fetching user data:', error);
       } finally {
         setLoadingCount(false);
       }
     }
 
-    fetchGenerationCount();
+    fetchUserData();
   }, [user?.id]);
 
   // Check for successful checkout
@@ -147,8 +162,8 @@ export default function Dashboard() {
       return;
     }
 
-    // Check generation limit for non-subscribers (admins bypass)
-    if (!subscribed && !isAdmin && generationCount >= FREE_GENERATION_LIMIT) {
+    // Check generation limit for non-subscribers (admins and free access users bypass)
+    if (!hasFullAccess && generationCount >= FREE_GENERATION_LIMIT) {
       toast.error('You have reached your free generation limit. Upgrade to Pro for unlimited generations!');
       return;
     }
@@ -260,8 +275,8 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Free Tier Usage Counter */}
-        {!subscribed && !hasReachedLimit && !checkingSubscription && !loadingCount && (
+        {/* Free Tier Usage Counter - only show for users without full access */}
+        {!hasFullAccess && !hasReachedLimit && !checkingSubscription && !loadingCount && (
           <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
             <CardContent className="py-4">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -321,6 +336,19 @@ export default function Dashboard() {
                 )}
                 Manage Subscription
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Free Access Banner - for users granted free access by admin */}
+        {hasFreeAccess && !subscribed && (
+          <Card className="bg-gradient-to-r from-purple-500/10 to-violet-500/5 border-purple-500/20">
+            <CardContent className="flex items-center gap-4 py-4">
+              <Gift className="h-8 w-8 text-purple-500" />
+              <div>
+                <h3 className="font-semibold text-purple-500">Free Access</h3>
+                <p className="text-sm text-muted-foreground">Unlimited AI thread generation</p>
+              </div>
             </CardContent>
           </Card>
         )}

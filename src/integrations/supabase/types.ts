@@ -310,6 +310,7 @@ export type Database = {
           created_at: string
           email: string | null
           full_name: string | null
+          has_free_access: boolean
           id: string
           latitude: number | null
           location: string | null
@@ -322,6 +323,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           full_name?: string | null
+          has_free_access?: boolean
           id?: string
           latitude?: number | null
           location?: string | null
@@ -334,6 +336,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           full_name?: string | null
+          has_free_access?: boolean
           id?: string
           latitude?: number | null
           location?: string | null
