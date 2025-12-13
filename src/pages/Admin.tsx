@@ -16,8 +16,10 @@ import {
   Search,
   Trash2,
   ShieldPlus,
-  ShieldMinus
+  ShieldMinus,
+  Gift
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import AdminImageModeration from '@/components/AdminImageModeration';
 import AdminCategoryManager from '@/components/AdminCategoryManager';
 import AdminTemplateManager from '@/components/AdminTemplateManager';
@@ -33,6 +35,7 @@ interface UserProfile {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
+  has_free_access: boolean;
 }
 
 interface ThreadHistory {
@@ -241,6 +244,25 @@ export default function Admin() {
     }
   };
 
+  const toggleFreeAccess = async (userProfileId: string, currentValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ has_free_access: !currentValue })
+        .eq('id', userProfileId);
+
+      if (error) throw error;
+      
+      setUsers(users.map(u => 
+        u.id === userProfileId ? { ...u, has_free_access: !currentValue } : u
+      ));
+      toast.success(currentValue ? 'Free access revoked' : 'Free access granted');
+    } catch (error) {
+      console.error('Error toggling free access:', error);
+      toast.error('Failed to update free access');
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
     u.full_name?.toLowerCase().includes(userSearch.toLowerCase())
@@ -298,6 +320,7 @@ export default function Admin() {
                       <TableHead>Email</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Free Access</TableHead>
                       <TableHead>Joined</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -317,6 +340,17 @@ export default function Admin() {
                                 {role}
                               </Badge>
                             ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={userProfile.has_free_access}
+                              onCheckedChange={() => toggleFreeAccess(userProfile.id, userProfile.has_free_access)}
+                            />
+                            {userProfile.has_free_access && (
+                              <Gift className="h-4 w-4 text-green-500" />
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
@@ -361,7 +395,7 @@ export default function Admin() {
                     ))}
                     {filteredUsers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           No users found
                         </TableCell>
                       </TableRow>
