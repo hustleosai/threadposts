@@ -11,7 +11,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Check, X, Loader2, Image as ImageIcon, Plus } from 'lucide-react';
+import { Check, X, Loader2, Image as ImageIcon, Plus, Eye } from 'lucide-react';
+
+interface PreviewImage {
+  image: PendingImage;
+  open: boolean;
+}
 
 interface PendingImage {
   id: string;
@@ -41,6 +46,7 @@ export default function AdminImageModeration() {
   const [tags, setTags] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
 
   useEffect(() => {
     fetchPendingImages();
@@ -291,11 +297,19 @@ export default function AdminImageModeration() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pendingImages.map((image) => (
               <Card key={image.id} className="bg-secondary/50 overflow-hidden">
-                <img
-                  src={image.image_url}
-                  alt={image.title}
-                  className="w-full h-40 object-cover"
-                />
+                <div className="relative group">
+                  <img
+                    src={image.image_url}
+                    alt={image.title}
+                    className="w-full h-40 object-cover"
+                  />
+                  <button
+                    onClick={() => setPreviewImage({ image, open: true })}
+                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  >
+                    <Eye className="h-8 w-8 text-white" />
+                  </button>
+                </div>
                 <CardContent className="p-4 space-y-3">
                   <div>
                     <h4 className="font-semibold truncate">{image.title}</h4>
@@ -349,6 +363,73 @@ export default function AdminImageModeration() {
             ))}
           </div>
         )}
+
+        {/* Image Preview Dialog */}
+        <Dialog open={!!previewImage?.open} onOpenChange={(open) => !open && setPreviewImage(null)}>
+          <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+            {previewImage?.image && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{previewImage.image.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <img
+                    src={previewImage.image.image_url}
+                    alt={previewImage.image.title}
+                    className="w-full max-h-[60vh] object-contain rounded-lg"
+                  />
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground">
+                      {previewImage.image.description || 'No description'}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline">{previewImage.image.category}</Badge>
+                      {previewImage.image.tags?.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Submitted {new Date(previewImage.image.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={() => {
+                        handleApprove(previewImage.image.id);
+                        setPreviewImage(null);
+                      }}
+                      disabled={actionLoading === previewImage.image.id}
+                      className="flex-1"
+                    >
+                      {actionLoading === previewImage.image.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 mr-1" />
+                          Approve
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        handleReject(previewImage.image.id, previewImage.image.image_url);
+                        setPreviewImage(null);
+                      }}
+                      disabled={actionLoading === previewImage.image.id}
+                      className="flex-1"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
